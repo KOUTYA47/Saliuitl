@@ -12,152 +12,18 @@
 
 ---
 
-## 1. タスク基本情報（必須）
-
-```yaml
-task:
-  id: TASK-YYYYMMDD-XX
-  title: "Short descriptive title"
-  owner: Lead
-  assigned_agents:
-    - Experiment-Runner
-    - Result-Analyst
-  status: todo | running | blocked | done
-  priority: high | medium | low
-```
+# TASK ENTRIES: 論文再現実験
 
 ---
 
-## 2. 背景・目的（Why）
-
-```text
-[背景]
-- なぜこのタスクが必要か
-- どの論文 / 実験 / 仮説に基づくか
-
-[目的]
-- このタスクで「何が分かれば成功か」
-```
-
----
-
-## 3. 入力（Inputs）
-
-```text
-- 使用するデータセット：
-- 参照論文・資料：
-- 使用するコード・スクリプト：
-- 前提条件（seed, model, dataset split 等）：
-```
-
----
-
-## 4. 実施内容（What to do）
-
-```text
-1. 実施する手順を箇条書きで明示
-2. 条件・パラメータは明示的に書く
-3. 「試してみる」「良さそうなら」は禁止
-```
-
----
-
-## 5. 出力（Deliverables）
-
-```text
-- 生成されるファイル：
-  - path/to/file.ext
-- 表・図・ログの形式：
-- Lead が確認すべき要点：
-```
-
----
-
-## 6. 成功条件（Acceptance Criteria）
-
-```text
-- 数値・条件で YES/NO 判定できる形で記述
-- 「妥当そう」「問題なさそう」は不可
-```
-
----
-
-## 7. 制約・禁止事項（Constraints）
-
-```text
-- 変更禁止項目（dataset, metric 定義など）
-- 使用禁止手法・近道
-```
-
----
-
-## 8. 検証・確認方法（Verification）
-
-```text
-- 再実行方法：
-- 再現確認のチェックポイント：
-```
-
----
-
-## 9. リスク・失敗時対応（Risk & Rollback）
-
-```text
-- 想定される失敗：
-- 切り分け方法：
-- ロールバック手順：
-```
-
----
-
-## 10. 関連タスク・次の一手（Next Steps）
-
-```text
-- 依存しているタスク：
-- このタスク完了後にやるべきこと：
-```
-
----
-
-## 11. 履歴（History）
-
-```text
-- YYYY-MM-DD: 作成
-- YYYY-MM-DD: 更新内容
-```
-
----
-
-## 12. タスク作成時のチェックリスト（必須）
-
-- [ ] 目的が1文で説明できる
-- [ ] 成功条件が数値または明確な条件で定義されている
-- [ ] 分母・評価条件が明示されている
-- [ ] 出力ファイルの保存場所が決まっている
-- [ ] 再実行方法が記載されている
-
----
-
-## Golden Rule
-
-> **「この TASKS.md を読んだ別の人（または1週間後の自分）が、
-> 追加質問なしで同じ作業を再現できるか？」**
-
----
----
-
-# TASK ENTRIES
-
----
-
-## TASK-20260201-01: Reproduce Saliuitl on INRIA with 2-patch attack
+## TASK-20260201-REPRO: Saliuitl論文 Table 1 & Table 2 再現
 
 ### 1. タスク基本情報
 
 ```yaml
 task:
-  id: TASK-20260201-01
-  title: "Reproduce Saliuitl on INRIA 2-patch attack"
+  id: TASK-20260201-REPRO
+  title: "Saliuitl論文の主要結果（Table 1, Table 2）を再現"
   owner: Lead
   assigned_agents:
     - Experiment-Runner
@@ -170,268 +36,366 @@ task:
 
 ```text
 [背景]
-- Saliuitl論文の再現実験として、INRIA dataset上での2-patch攻撃に対する検出・復元性能を検証する
-- 既存の1-patch実験（data/inria/1p）は完了済み。2-patch（data/inria/2p）の再現が未完了
-- 2-patch攻撃はパッチ数が増えることで検出難易度が変化する可能性がある
+- Saliuitl論文（CVPR 2025）の再現実験を実施
+- 論文中のTable 1（Recovery Rate / Lost Prediction Rate）とTable 2（nmAP）を再現
+- ユーザーが論文結果の正確性を検証できるようにする
 
 [目的]
-- 2-patch攻撃画像に対してSaliuitlパイプライン（検出→復元）が正常に動作することを確認する
-- 論文記載の評価指標（Detection Rate, Recovery Rate）を算出し、再現性を検証する
+- 論文で報告された全シナリオの数値を再現する
+- 再現結果と論文値の差異を明確にする
 ```
 
-### 3. 入力（Inputs）
+### 3. 再現対象の論文結果
 
-```text
-- 使用するデータセット：
-  - data/inria/clean/         : クリーン画像（正解）
-  - data/inria/2p/            : 2-patch攻撃画像（評価対象）
+#### Table 1: Recovery Rate (RR) / Lost Prediction Rate (LPR)
 
-- 参照論文・資料：
-  - Victorica_Saliuitl_Ensemble_Salience_Guided_Recovery_of_Adversarial_Patches_against_CNNs_CVPR_2025_paper.pdf
+| Attack | Saliuitl RR/LPR (論文値) |
+|--------|-------------------------|
+| INRIA-1 | 0.5909/0.0152 |
+| INRIA-2 | 0.3871/0.0 |
+| INRIA-T | 0.4737/0.0526 |
+| INRIA-MO | 0.4749/0.0 |
+| VOC-1 | 0.5404/0.0293 |
+| VOC-2 | 0.5376/0.0125 |
+| VOC-T | 0.4244/0.0348 |
+| VOC-MO | 0.3955/0.0095 |
+| ImageNet-1 | 0.8869/0.0071 |
+| ImageNet-2 | 0.8535/0.0061 |
+| ImageNet-4 | 0.8436/0.0086 |
+| ImageNet-T | 0.5065/0.0612 |
+| CIFAR-1 | 0.9738/0.0008 |
+| CIFAR-2 | 0.9789/0.0006 |
+| CIFAR-4 | 0.9747/0.0 |
+| CIFAR-T | 0.8566/0.0 |
 
-- 使用するコード・スクリプト：
-  - saliuitl.py               : メイン評価スクリプト
-  - train_attack_detector.py  : AD学習スクリプト
-  - helper.py                 : 特徴抽出・クラスタリング
+#### Table 2: Adversarial/Clean nmAP（物体検出のみ）
 
-- 前提条件：
-  - seed: 未指定（デフォルト）
-  - model: YOLOv2 (cfg/yolo.cfg, weights/yolo.weights)
-  - ensemble_step: 5
-  - inpainting_step: 5
-  - dbscan_eps: 1.0
-  - dbscan_min_pts: 4
-  - inpaint: biharmonic
-```
+| Attack | Saliuitl Adv./Clean (論文値) |
+|--------|------------------------------|
+| INRIA-1 | 0.6897/0.9998 |
+| INRIA-2 | 0.5998/1.0 |
+| INRIA-T | 0.7034/0.9987 |
+| INRIA-MO | 0.4737/0.9999 |
+| VOC-1 | 0.5094/0.9950 |
+| VOC-2 | 0.5088/0.9940 |
+| VOC-T | 0.5043/0.9942 |
+| VOC-MO | 0.3563/0.9877 |
 
-### 4. 実施内容（What to do）
+### 4. 利用可能なリソース
 
-**サブタスク一覧:**
+#### データセット
+| Dataset | 攻撃シナリオ | effective file |
+|---------|-------------|----------------|
+| INRIA | 1p, 2p, trig | あり |
+| INRIA | mo | **なし（要確認）** |
+| VOC | 1p, 2p, trig, mo | あり |
+| ImageNet | 1p, 2p, 4p, trig | あり |
+| CIFAR-10 | 1p, 2p, 4p, trig | あり |
 
-| Sub-ID | タイトル | 担当 | 依存 |
-|--------|---------|------|------|
-| 01-A | 2-patch特徴マップ抽出 | Experiment-Runner | - |
-| 01-B | Attack Detector学習（2-patch） | Experiment-Runner | 01-A |
-| 01-C | effective_2p.npy生成 | Experiment-Runner | - |
-| 01-D | 検出・復元評価実行 | Experiment-Runner | 01-B, 01-C |
-| 01-E | 結果解析・レポート作成 | Result-Analyst | 01-D |
+#### チェックポイント（Attack Detector）
+- `checkpoints/final_detection/2dcnn_raw_inria_{2,5,10,25}_atk_det.pth`
+- `checkpoints/final_detection/2dcnn_raw_VOC_{2,5,10,25}_atk_det.pth`
+- `checkpoints/final_classification/2dcnn_raw_cifar_{2,5,10,25}_atk_det.pth`
+- `checkpoints/final_classification/2dcnn_raw_imagenet_{2,5,10,25}_atk_det.pth`
+
+#### 重みファイル
+- `weights/yolo.weights` (YOLOv2)
+
+### 5. サブタスク一覧
+
+| Sub-ID | タスク | データセット | 攻撃 | 担当 | 状態 |
+|--------|--------|-------------|------|------|------|
+| R-01 | INRIA 1-patch 評価 | INRIA | 1p | Runner | todo |
+| R-02 | INRIA 2-patch 評価 | INRIA | 2p | Runner | todo |
+| R-03 | INRIA Triangular 評価 | INRIA | trig | Runner | todo |
+| R-04 | VOC 1-patch 評価 | VOC | 1p | Runner | todo |
+| R-05 | VOC 2-patch 評価 | VOC | 2p | Runner | todo |
+| R-06 | VOC Triangular 評価 | VOC | trig | Runner | todo |
+| R-07 | VOC Multi-Object 評価 | VOC | mo | Runner | todo |
+| R-08 | ImageNet 1-patch 評価 | ImageNet | 1p | Runner | todo |
+| R-09 | ImageNet 2-patch 評価 | ImageNet | 2p | Runner | todo |
+| R-10 | ImageNet 4-patch 評価 | ImageNet | 4p | Runner | todo |
+| R-11 | ImageNet Triangular 評価 | ImageNet | trig | Runner | todo |
+| R-12 | CIFAR 1-patch 評価 | CIFAR | 1p | Runner | todo |
+| R-13 | CIFAR 2-patch 評価 | CIFAR | 2p | Runner | todo |
+| R-14 | CIFAR 4-patch 評価 | CIFAR | 4p | Runner | todo |
+| R-15 | CIFAR Triangular 評価 | CIFAR | trig | Runner | todo |
+| R-16 | 結果集計・論文比較表作成 | - | - | Analyst | todo |
 
 ---
 
-#### Sub-Task 01-A: 2-patch特徴マップ抽出
+## Sub-Task R-01: INRIA 1-patch 評価
 
-```text
-目的: Attack Detector学習用の特徴マップを生成する
-
-手順:
-1. data/inria/clean/ から特徴マップを抽出 → 2p_train_fms.npy
-2. data/inria/2p/ から特徴マップを抽出 → 2p_train_pfms.npy
-3. 対応するタグファイル生成 → 2p_train_tags.npy
-
-出力ファイル:
-  - net_train_data/inria/2p_train_fms.npy
-  - net_train_data/inria/2p_train_pfms.npy
-  - net_train_data/inria/2p_train_tags.npy
-
-成功条件:
-  - 3ファイルが生成される
-  - 2p_train_fms.npy と 2p_train_pfms.npy の shape[0] が一致する
-```
-
----
-
-#### Sub-Task 01-B: Attack Detector学習（2-patch）
-
-```text
-目的: 2-patch攻撃検出用のADモデルを学習する
-
-コマンド:
-python train_attack_detector.py \
-  --feature_maps net_train_data/inria/2p_train_fms.npy \
-  --adv_feature_maps net_train_data/inria/2p_train_pfms.npy \
+### コマンド
+```bash
+python saliuitl.py \
+  --inpaint biharmonic \
+  --imgdir data/inria/clean \
+  --patch_imgdir data/inria/1p \
   --dataset inria \
-  --ensemble_step 5
-
-出力ファイル:
-  - checkpoints/final_detection/2dcnn_raw_inria_5_2p_atk_det.pth
-
-成功条件:
-  - モデルファイルが生成される
-  - 学習ログにloss収束が確認できる
+  --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth \
+  --det_net 2dcnn_raw \
+  --ensemble_step 5 \
+  --inpainting_step 5 \
+  --effective_files data/inria/1p/effective_1p.npy \
+  --n_patches 1
 ```
+
+### 期待される出力
+- Recovery Rate (RR)
+- Lost Prediction Rate (LPR)
+- Adversarial nmAP
+- Clean nmAP
+
+### 論文値（比較対象）
+- RR: 0.5909, LPR: 0.0152
+- Adv. nmAP: 0.6897, Clean nmAP: 0.9998
 
 ---
 
-#### Sub-Task 01-C: effective_2p.npy生成
+## Sub-Task R-02: INRIA 2-patch 評価
 
-```text
-目的: 2-patch攻撃が「有効」な画像リストを特定する
-
-定義: 攻撃が有効 = クリーン画像では検出成功、攻撃画像では検出失敗
-
-手順:
-1. data/inria/clean/ の全画像に対してYOLOv2で検出実行
-2. data/inria/2p/ の全画像に対してYOLOv2で検出実行
-3. clean で検出成功 かつ 2p で検出失敗 の画像をリスト化
-
-出力ファイル:
-  - effective_2p.npy (画像ファイル名のリスト)
-
-成功条件:
-  - effective_2p.npy が生成される
-  - リストが空でない（有効攻撃画像が存在する）
-```
-
----
-
-#### Sub-Task 01-D: 検出・復元評価実行
-
-```text
-目的: Saliuitlパイプラインで2-patch攻撃の検出・復元を評価する
-
-コマンド:
+### コマンド
+```bash
 python saliuitl.py \
   --inpaint biharmonic \
   --imgdir data/inria/clean \
   --patch_imgdir data/inria/2p \
   --dataset inria \
-  --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_2p_atk_det.pth \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth \
   --det_net 2dcnn_raw \
   --ensemble_step 5 \
   --inpainting_step 5 \
-  --effective_files effective_2p.npy \
+  --effective_files data/inria/2p/effective_2p.npy \
   --n_patches 2
+```
 
-出力ファイル:
-  - experiments/exp_20260201_inria_2p/config.yaml
-  - experiments/exp_20260201_inria_2p/logs/stdout.log
-  - experiments/exp_20260201_inria_2p/results/metrics.json
+### 論文値
+- RR: 0.3871, LPR: 0.0
+- Adv. nmAP: 0.5998, Clean nmAP: 1.0
 
-成功条件:
-  - スクリプトがエラーなく完了する
-  - Detection Rate, Recovery Rate が出力される
+---
+
+## Sub-Task R-03: INRIA Triangular 評価
+
+### コマンド
+```bash
+python saliuitl.py \
+  --inpaint biharmonic \
+  --imgdir data/inria/clean \
+  --patch_imgdir data/inria/trig \
+  --dataset inria \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth \
+  --det_net 2dcnn_raw \
+  --ensemble_step 5 \
+  --inpainting_step 5 \
+  --effective_files data/inria/trig/effective_1p.npy \
+  --n_patches 1
+```
+
+### 論文値
+- RR: 0.4737, LPR: 0.0526
+- Adv. nmAP: 0.7034, Clean nmAP: 0.9987
+
+---
+
+## Sub-Task R-04 ~ R-07: VOC 評価
+
+### R-04: VOC 1-patch
+```bash
+python saliuitl.py \
+  --inpaint biharmonic \
+  --imgdir data/voc/clean \
+  --patch_imgdir data/voc/1p \
+  --dataset voc \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+  --det_net 2dcnn_raw \
+  --ensemble_step 5 \
+  --inpainting_step 5 \
+  --effective_files data/voc/1p/effective_1p.npy \
+  --n_patches 1
+```
+論文値: RR: 0.5404, LPR: 0.0293, Adv: 0.5094, Clean: 0.9950
+
+### R-05: VOC 2-patch
+```bash
+python saliuitl.py \
+  --imgdir data/voc/clean \
+  --patch_imgdir data/voc/2p \
+  --dataset voc \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+  --effective_files data/voc/2p/effective_2p.npy \
+  --n_patches 2
+```
+論文値: RR: 0.5376, LPR: 0.0125, Adv: 0.5088, Clean: 0.9940
+
+### R-06: VOC Triangular
+```bash
+python saliuitl.py \
+  --imgdir data/voc/clean \
+  --patch_imgdir data/voc/trig \
+  --dataset voc \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+  --effective_files data/voc/trig/effective_1p.npy \
+  --n_patches 1
+```
+論文値: RR: 0.4244, LPR: 0.0348, Adv: 0.5043, Clean: 0.9942
+
+### R-07: VOC Multi-Object
+```bash
+python saliuitl.py \
+  --imgdir data/voc/clean \
+  --patch_imgdir data/voc/mo \
+  --dataset voc \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+  --effective_files data/voc/mo/effective_mop.npy \
+  --n_patches 1
+```
+論文値: RR: 0.3955, LPR: 0.0095, Adv: 0.3563, Clean: 0.9877
+
+---
+
+## Sub-Task R-08 ~ R-11: ImageNet 評価
+
+### R-08: ImageNet 1-patch
+```bash
+python saliuitl.py \
+  --imgdir data/imagenet/clean \
+  --patch_imgdir data/imagenet/1p \
+  --dataset imagenet \
+  --det_net_path checkpoints/final_classification/2dcnn_raw_imagenet_5_atk_det.pth \
+  --effective_files data/imagenet/1p/effective_1p.npy \
+  --n_patches 1
+```
+論文値: RR: 0.8869, LPR: 0.0071
+
+### R-09: ImageNet 2-patch
+論文値: RR: 0.8535, LPR: 0.0061
+
+### R-10: ImageNet 4-patch
+論文値: RR: 0.8436, LPR: 0.0086
+
+### R-11: ImageNet Triangular
+論文値: RR: 0.5065, LPR: 0.0612
+
+---
+
+## Sub-Task R-12 ~ R-15: CIFAR-10 評価
+
+### R-12: CIFAR 1-patch
+```bash
+python saliuitl.py \
+  --imgdir data/cifar/clean \
+  --patch_imgdir data/cifar/1p \
+  --dataset cifar \
+  --det_net_path checkpoints/final_classification/2dcnn_raw_cifar_5_atk_det.pth \
+  --effective_files data/cifar/1p/effective_1p.npy \
+  --n_patches 1
+```
+論文値: RR: 0.9738, LPR: 0.0008
+
+### R-13: CIFAR 2-patch
+論文値: RR: 0.9789, LPR: 0.0006
+
+### R-14: CIFAR 4-patch
+論文値: RR: 0.9747, LPR: 0.0
+
+### R-15: CIFAR Triangular
+論文値: RR: 0.8566, LPR: 0.0
+
+---
+
+## Sub-Task R-16: 結果集計・論文比較表作成
+
+### 担当
+Result-Analyst
+
+### 入力
+- 各実験の出力ログ（R-01 ~ R-15）
+
+### 出力
+- `analysis/tables/reproduction_table1.csv`: Table 1 再現結果
+- `analysis/tables/reproduction_table2.csv`: Table 2 再現結果
+- `analysis/tables/reproduction_comparison.md`: 論文値との比較
+
+### フォーマット
+```csv
+dataset,attack,paper_rr,repro_rr,paper_lpr,repro_lpr,diff_rr,diff_lpr
+INRIA,1p,0.5909,X.XXXX,0.0152,X.XXXX,X.XXXX,X.XXXX
+...
 ```
 
 ---
 
-#### Sub-Task 01-E: 結果解析・レポート作成
+## 6. 成功条件（Acceptance Criteria）
 
 ```text
-目的: 評価結果を論文形式で整理し、1-patchとの比較を行う
-
-手順:
-1. metrics.json から主要指標を抽出
-2. 1-patch結果との比較表を作成
-3. 論文Table形式で整形
-
-出力ファイル:
-  - analysis/tables/inria_2p_results.csv
-  - analysis/figures/inria_1p_vs_2p.png (optional)
-
-成功条件:
-  - Detection Rate, Recovery Rate が数値で報告される
-  - 1-patch結果との差異が明示される
+- [AC-1] 全15シナリオ（R-01〜R-15）がエラーなく実行完了
+- [AC-2] 各シナリオで RR, LPR が数値として出力される
+- [AC-3] 物体検出シナリオ（INRIA/VOC）で nmAP が出力される
+- [AC-4] 再現値と論文値の差異が ±5% 以内（許容誤差）
+- [AC-5] 比較表が analysis/tables/ に生成される
 ```
 
-### 5. 出力（Deliverables）
+---
+
+## 7. 制約・禁止事項
 
 ```text
-- 生成されるファイル：
-  - net_train_data/inria/2p_train_fms.npy
-  - net_train_data/inria/2p_train_pfms.npy
-  - checkpoints/final_detection/2dcnn_raw_inria_5_2p_atk_det.pth
-  - effective_2p.npy
-  - experiments/exp_20260201_inria_2p/
-  - analysis/tables/inria_2p_results.csv
-
-- 表・図・ログの形式：
-  - metrics.json: {"detection_rate": float, "recovery_rate": float, ...}
-  - CSV: dataset, n_patches, detection_rate, recovery_rate
-
-- Lead が確認すべき要点：
-  - 2-patchでのDetection Rateが1-patchと比較して妥当か
-  - Recovery Rateの低下幅が許容範囲か
+- **全実験はDockerコンテナ内で実行すること（必須）**
+  - コマンド形式: docker compose run --rm saliuitl python saliuitl.py ...
+- ensemble_step = 5 固定（論文のデフォルト設定）
+- inpainting = biharmonic 固定
+- パラメータチューニング禁止
+- effective_files は各データセット付属のものを使用
 ```
 
-### 6. 成功条件（Acceptance Criteria）
+### Docker実行コマンド形式
+```bash
+# 基本形式
+docker compose run --rm saliuitl python saliuitl.py [OPTIONS]
+
+# 例: CIFAR 1-patch
+docker compose run --rm saliuitl python saliuitl.py \
+  --inpaint biharmonic \
+  --imgdir data/cifar/clean \
+  --patch_imgdir data/cifar/1p \
+  --dataset cifar \
+  --det_net_path checkpoints/final_classification/2dcnn_raw_cifar_5_atk_det.pth \
+  --det_net 2dcnn_raw \
+  --ensemble_step 5 \
+  --inpainting_step 5 \
+  --effective_files data/cifar/1p/effective_1p.npy \
+  --n_patches 1
+```
+
+---
+
+## 8. 既知の問題・確認事項
 
 ```text
-- [AC-1] 全サブタスク(01-A〜01-E)がエラーなく完了する
-- [AC-2] Detection Rate ≥ 0.0（数値として算出される）
-- [AC-3] Recovery Rate ≥ 0.0（数値として算出される）
-- [AC-4] effective_2p.npy に最低1枚以上の有効攻撃画像が含まれる
-- [AC-5] 実験ディレクトリにconfig.yaml, logs/, results/が存在する
+1. INRIA の multi-object (mo) データが見つからない
+   → 論文では INRIA-MO の結果があるが、data/inria/mo/ が存在しない
+   → 対応: VOC-MO のみ評価するか、データ補完が必要
+
+2. ResNet50 チェックポイントの有無
+   → ImageNet/CIFAR 用の ResNet50 重みが必要
+   → checkpoints/ にあるのは AD モデルのみ
 ```
 
-### 7. 制約・禁止事項（Constraints）
+---
+
+## 9. 実行順序（推奨）
+
+1. **Phase 1**: 環境確認（依存関係、GPU、データ整合性）
+2. **Phase 2**: CIFAR 1-patch (R-12) で動作確認（軽量）
+3. **Phase 3**: 全シナリオ実行（R-01 ~ R-15）
+4. **Phase 4**: 結果集計（R-16）
+
+---
+
+## 10. 履歴
 
 ```text
-- 変更禁止項目:
-  - YOLOv2モデル構成（cfg/yolo.cfg）
-  - データセット分割（既存のclean/2pディレクトリ構成）
-  - 評価指標の定義（Detection Rate = 検出成功数 / 有効攻撃画像数）
-
-- 使用禁止:
-  - 手動でのパラメータチューニング（ensemble_step=5固定）
-  - 他データセットからの転移学習
-  - 既存の1-patch用モデルでの評価（必ず2-patch用を学習する）
+- 2026-02-01: Lead agent により作成（論文再現タスク）
 ```
-
-### 8. 検証・確認方法（Verification）
-
-```text
-- 再実行方法:
-  1. experiments/exp_20260201_inria_2p/config.yaml を確認
-  2. 同ディレクトリの run.sh を実行
-  3. results/metrics.json が同一値を出力することを確認
-
-- 再現確認のチェックポイント:
-  - [ ] 特徴マップのshapeが一致するか
-  - [ ] ADモデルの学習曲線が収束しているか
-  - [ ] effective_2p.npy の画像数が変わらないか
-  - [ ] 最終metricsが±1%以内で再現されるか
-```
-
-### 9. リスク・失敗時対応（Risk & Rollback）
-
-```text
-- 想定される失敗:
-  1. 2-patch画像が少なすぎてAD学習が不安定
-  2. effective_2p.npy が空（有効攻撃画像がない）
-  3. メモリ不足で特徴抽出が失敗
-
-- 切り分け方法:
-  1. → 学習ログでloss/accuracyの推移を確認
-  2. → cleanでの検出率を確認（検出器自体の問題か切り分け）
-  3. → バッチサイズ縮小、GPU利用可否を確認
-
-- ロールバック手順:
-  - experiments/exp_20260201_inria_2p/ を削除して再実行
-  - checkpoints配下は既存1-patchモデルを保持しているため影響なし
-```
-
-### 10. 関連タスク・次の一手（Next Steps）
-
-```text
-- 依存しているタスク:
-  - なし（独立タスク）
-
-- このタスク完了後にやるべきこと:
-  - VOCデータセットでの2-patch再現実験
-  - 3-patch以上のスケーラビリティ検証
-  - inpaint手法比較（diffusion vs biharmonic）
-```
-
-### 11. 履歴（History）
-
-```text
-- 2026-02-01: Lead agent により作成
-```
-
-### 12. タスク作成時のチェックリスト
-
-- [x] 目的が1文で説明できる
-- [x] 成功条件が数値または明確な条件で定義されている
-- [x] 分母・評価条件が明示されている
-- [x] 出力ファイルの保存場所が決まっている
-- [x] 再実行方法が記載されている

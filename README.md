@@ -1,107 +1,133 @@
-## OVERVIEW (YouTube)
-[![Watch the video, width=10](https://img.youtube.com/vi/cuay8lF8CCw/maxresdefault.jpg)](https://www.youtube.com/watch?v=cuay8lF8CCw)
-## DESCRIPTION
-This repository contains the PyTorch implementation of Saliuitl, in particular it follows the proposed DBSCAN-based implementation in the paper, it is possible to customize the code to change the different components of Saliuitl, we will add examples in the future. Note that for simplicity, the attacked subsets of Pascal VOC and INRIA in this repository use the patch attack used during training in the paper. We will add code to create the patch scenarios using the attack we use for evaluation (or any other) soon. 
+# Saliuitl（研究用フォーク）
 
-![saliu_image](https://github.com/user-attachments/assets/e52f6886-8af2-4c42-8dc9-e5e0216a5861)
+このリポジトリは、**Saliuitl: Ensemble Salience Guided Recovery of Adversarial Patches** の
+オリジナル実装を**研究目的でフォーク**したものです。
 
-Saliuitl means "ideological shift" in Nahuatl. The name is inspired by the shift of attrbiutes across ensembles which we use to detect adversarial patches.
+> オリジナルリポジトリ（フォーク元）:
+> **https://github.com/Saliuitl/Saliuitl**
 
-## STRUCTURE
-The code is organized as follows:
+本フォークは、オリジナルの実装動作を維持しつつ、
+**再現可能な研究**、**Claude Code サブエージェントワークフロー**、
+**Git Worktree による並列開発**をサポートするために再構成されています。
 
-directories:
-cfg: contains cfg files for possible object detection victim models (YOLOv2 by default).
+---
 
-checkpoints: contains the weights for the AD attack detector net. The weights for ResNet50 on CIFAR-10 should be placed in this folder.
+## オリジナルリポジトリとの違い
 
-data: contains the folder structure required to run Saliuitl on the datasets introduced in the paper. Due to the file size, only a small amount of examples are included for each dataset.
+本フォークは**研究インフラ**を導入するものであり、アルゴリズムの変更は行っていません（明示的に記載がある場合を除く）。
 
-nets: torch models for AD and ResNet50.
+- **再現可能な実験構造**
+  - `experiments/exp_YYYYMMDD_*` を単一の真実源（SSOT）として使用
+  - 実験ごとに明示的な `config.yaml` と `run.sh` を配置
+- **Claude Code サブエージェントワークフロー**
+  - 明確な役割分担: Lead / Runner / Analyst / Reviewer / Critic / Investigator
+- **Git Worktree による並列研究**
+  - 実装・実験・分析用に別々のワークツリーを使用
+- **正式な研究規約**
+  - `CONVENTIONS.md`, `TASKS.md`, `WORKTREE.md`
 
-utils: contains utils.py, a file with helper functions of object detection.
+コアとなる Saliuitl のロジックとデフォルトパスは、
+再現性を損なわないようオリジナルリポジトリと互換性を維持しています。
 
-weights: the weights for YOLOv2 should be placed in this folder.
+---
 
-cfg.py, darknet.py, region_loss.py: files required to run YOLOv2 using PyTorch.
-helper.py: various helper functions to perform object detection.
-saliuitl.py: main code to run and evaluate attack detection and/or recovery using Saliuitl
+## リポジトリ構造（研究指向）
 
-Our code is based on the following publicly available repositories:
-
-https://github.com/Zhang-Jack/adversarial_yolo2
-
-https://github.com/inspire-group/PatchGuard/tree/master
-
-To run attacks on CIFAR-10 it is necessary to download the resnet50_192_cifar.pth file from https://github.com/inspire-group/PatchGuard/tree/master and place it in the checkpoints folder.
-
-To run attacks on INRIA and Pascal VOC it is necessary to follow the instructions on https://github.com/Zhang-Jack/adversarial_yolo2 to download the yolo.weights file into the weights folder.
-
-## EXAMPLE COMMANDS
-Run Saliuitl on effective rectangular single-patch attacks on INRIA using default settings (the "unsuccesful attacks" in the output refer to the recovery rate):
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/1p --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 --effective_files effective_1p.npy --n_patches 1
-```
-
-For double patches:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/2p --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 --effective_files effective_2p.npy --n_patches 2
-```
-
-For triangular patches:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/trig --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 --effective_files effective_1p.npy --n_patches 1
-```
-
-For multi-object patches (the "n_patches" argument is just relevant to name saved results):
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/mo --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 --effective_files effective_mop.npy --n_patches 7
-```
-
-To evaluate lost predictions, use the clean counterpart of each attack by adding the "--clean" flag to the above commands (the "succesful attacks" in the output refer to the lost prediction rate), for example:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/1p --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 --effective_files effective_1p.npy --n_patches 1 --clean
-```
-
-To evaluate inflicted attacks, use ineffective attacks by adding the "--uneffective" flag to the above commands (the "succesful attacks" in the output refer to the inflicted attack rate), for example:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/1p --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 --effective_files effective_1p.npy --n_patches 1 --uneffective
+```text
+.
+├─ saliuitl.py                # オリジナルのエントリポイント（変更なし）
+├─ cfg/ weights/ checkpoints/ # オリジナルのレイアウト（互換性のため維持）
+├─ data/                      # データセット配置（変更なし）
+│
+├─ experiments/               # 全実験実行（SSOT）
+│  └─ exp_YYYYMMDD_slug/
+│     ├─ config.yaml
+│     ├─ run.sh
+│     ├─ logs/
+│     └─ results/
+│
+├─ analysis/                  # 集計と可視化
+│  ├─ scripts/
+│  ├─ tables/
+│  └─ figures/
+│
+├─ docs/
+│  ├─ notes/                  # Investigator の出力
+│  └─ decisions/
+│
+├─ .claude/agents/            # Claude Code サブエージェント
+│
+├─ CONVENTIONS.md
+├─ TASKS.md
+├─ WORKTREE.md
+└─ README.md
 ```
 
-"--ensemble_step" and "--inpainting_step" refer to the size of the set of saliency thresholds used for attack detection and recovery, respectively. The maximum size of the set in the code is 100, which corresponds to a step of 1 (hence these parameters should be in the range 1-100).
-Thus, a step 5 corresponds to the default 20 threshold set in the paper. To use, e.g., a set of size 50 run:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/1p --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_2_atk_det.pth --det_net 2dcnn_raw --ensemble_step 2 --inpainting_step 2 --effective_files effective_1p.npy --n_patches 1
+---
+
+## 研究ワークフロー（推奨）
+
+1. **Investigator**
+   - コードベース / データセットの前提を理解
+   - 調査結果を `docs/notes/` に記録
+2. **Lead**
+   - `TASKS.md` でタスクを定義
+3. **Builder**
+   - 変更を実装（開発用ワークツリー）
+4. **Reviewer**
+   - 実装をレビュー（読み取り専用）
+5. **Runner**
+   - 実験を実行（`experiments/`）
+6. **Analyst**
+   - 結果を集計（`analysis/`）
+7. **Research Critic**
+   - 実験の妥当性を評価
+8. **Lead**
+   - Go / No-Go 判断と次のステップ
+
+詳細は `WORKTREE.md` を参照してください。
+
+---
+
+## 実験の実行
+
+すべての実験は実験ディレクトリを通して実行する必要があります。
+
+```bash
+# 実験ディレクトリを作成
+mkdir -p experiments/exp_YYYYMMDD_example/{logs,results}
+
+# config.yaml と run.sh を編集
+cd experiments/exp_YYYYMMDD_example
+./run.sh
 ```
 
-Different ensemble sizes can be used for detection and recovery. For example, now using the size 50 only for recovery, and a size of 10 for detection run:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/inria/clean --patch_imgdir data/inria/1p --dataset inria --det_net_path checkpoints/final_detection/2dcnn_raw_inria_10_atk_det.pth --det_net 2dcnn_raw --ensemble_step 10 --inpainting_step 2 --effective_files effective_1p.npy --n_patches 1
-```
-Note that the "ensemble_step" determines the size of the ensmeble used for detection, and thus it also indicates which saved weightfile must be used on the attack detector AD.
-The weightfile of AD will also depend on the dataset/task, for example, to run the Saliuitl configuration from the command above on ImageNet, for attacks with four rectangular patches:
-```
-python saliuitl.py --inpaint biharmonic --imgdir data/imagenet/clean --patch_imgdir data/imagenet/4p --dataset imagenet --det_net_path checkpoints/final_classification/2dcnn_raw_imagenet_10_atk_det.pth --det_net 2dcnn_raw --ensemble_step 10 --inpainting_step 2 --effective_files effective_1p.npy --n_patches 1
-```
+研究実験では `saliuitl.py` を直接実行**しないでください**。
+これにより再現性とトレーサビリティが確保されます。
 
-Refer to saliuitl.py for further customization options.
+---
 
-## TRAINING
-While we include the weights for trained instances of AD on all datasets, we also provide the training set feature maps we use to train AD. Note these can be used to also train alternative models, and one may also extract alternative attributes for the ensemble attribute vector. We exclude the Pascal VOC feature maps due to file size, but one may extract such feature maps for any dataset based on the main code for Saliuitl, since we adapt vicitm models to return the feature maps we use for detection and recovery.
+## 再現性に関する注意
 
-Example commands to train AD using the default ensemble size of 20 and the DBSCAN-based attributes used for our evaluation are added below:
+- データセットとチェックポイントは Git から除外されている場合があります
+- すべての実験条件は `config.yaml` に記録する必要があります
+- ログと結果は派生成果物として扱われます
 
-Train AD for INRIA (YOLOv2 victim model):
-```
-python train_attack_detector.py --feature_maps net_train_data/inria/1p_train_fms.npy --adv_feature_maps net_train_data/inria/1p_train_pfms.npy
-```
-Train AD for ImageNet (ResNet-50 victim model):
-```
-python train_attack_detector.py --feature_maps net_train_data/imagenet/1p_train_fms.npy --adv_feature_maps net_train_data/imagenet/1p_train_pfms.npy
-```
-Train AD for CIFAR-10 (ResNet-50 victim model):
-```
-python train_attack_detector.py --feature_maps net_train_data/cifar/1p_train_fms.npy --adv_feature_maps net_train_data/cifar/1p_train_pfms.npy
-```
+厳密なルールは `CONVENTIONS.md` を参照してください。
 
-Weights will be saved to the checkpoints folder.
+---
+
+## ライセンスと帰属
+
+本リポジトリは**オリジナルプロジェクトと同じライセンス**に従います。
+
+学術研究でこのコードを使用する場合は、**オリジナルの論文とリポジトリを引用**してください。
+本フォークはオリジナルの Saliuitl 手法の著作権を主張するものではありません。
+
+---
+
+## 免責事項
+
+本フォークは**研究および実験目的**で使用されることを意図しています。
+インフラ変更以外の修正は、アルゴリズム的貢献として認められる前に、
+明確に文書化され、検証される必要があります。

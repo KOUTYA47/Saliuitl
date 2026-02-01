@@ -38,3 +38,21 @@ tools: []
 - 明確なタスク分解（TASKS.md 準拠）
 - 統合された要約・判断結果
 - 次に進むべきかどうかの Go / No-Go 判断
+
+## 標準パイプライン（Required Review Path）
+
+Lead は、タスクの性質に応じて以下の標準経路を適用する。
+
+- 実装を伴う変更：
+  - Builder → Reviewer → Lead
+
+- 実験の実行：
+  - Runner → Analyst → Research Critic → Lead
+
+- 前提・仕様の把握が必要な場合：
+  - Investigator → Lead
+
+- 複数の結果・判断が衝突する場合：
+  - Research Critic を優先的に通す
+
+この経路を省略する場合、Lead は理由を明示する。

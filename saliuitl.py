@@ -81,6 +81,9 @@ parser.add_argument('--inpainting_step', default=5, type=int, help='100/threshol
 parser.add_argument("--eval_class",action='store_true',help="match class for iou evaluation")
 
 parser.add_argument('--remove', default='_', type=str, help='optionally omit clustering features indicated as feat1_feat2_feat3 (ablation study)')
+parser.add_argument('--save_images', action='store_true', help='save clean/attacked/recovered images for visualization')
+parser.add_argument('--save_images_dir', default='analysis/figures/recovered', type=str, help='directory to save visualization images')
+parser.add_argument('--save_images_limit', default=10, type=int, help='max number of images to save')
 args = parser.parse_args()
 
 warnings.filterwarnings("ignore")
@@ -99,6 +102,15 @@ elif args.dataset in ['inria', 'voc']:
 mn, std= args.scale_mean, args.scale_var
 imgdir=args.imgdir
 patchdir=args.patch_imgdir
+
+# Image saving setup
+if args.save_images:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    os.makedirs(args.save_images_dir, exist_ok=True)
+    saved_images_count = 0
 device = 'cuda'
 #build and initialize model
 if args.dataset == 'imagenet':
@@ -439,6 +451,52 @@ if args.dataset in ['inria', 'voc']:
                 else:
                     success_atk = success_atk + 1
 
+                # Save visualization images
+                if args.save_images and saved_images_count < args.save_images_limit:
+                    saved_images_count += 1
+                    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+
+                    # Clean image with boxes
+                    clean_np = padded_img.cpu().numpy().transpose(1, 2, 0)
+                    axes[0, 0].imshow(clean_np)
+                    axes[0, 0].set_title(f'Clean ({len(cbb)} detections)')
+                    for box in cbb:
+                        x1, y1, x2, y2 = int(box[0]*416), int(box[1]*416), int(box[2]*416), int(box[3]*416)
+                        rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, color='green', linewidth=2)
+                        axes[0, 0].add_patch(rect)
+                    axes[0, 0].axis('off')
+
+                    # Attacked image with boxes
+                    attacked_np = p_img.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+                    axes[0, 1].imshow(attacked_np)
+                    axes[0, 1].set_title(f'Attacked ({len(adb)} detections)')
+                    for box in adb:
+                        x1, y1, x2, y2 = int(box[0]*416), int(box[1]*416), int(box[2]*416), int(box[3]*416)
+                        rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, color='red', linewidth=2)
+                        axes[0, 1].add_patch(rect)
+                    axes[0, 1].axis('off')
+
+                    # Recovered image with boxes
+                    recovered_np = in_img.squeeze(0).cpu().numpy().transpose(1, 2, 0)
+                    axes[1, 0].imshow(np.clip(recovered_np, 0, 1))
+                    axes[1, 0].set_title(f'Recovered ({len(sdb)} detections) - {"Success" if not suc_atk else "Failed"}')
+                    for box in sdb:
+                        x1, y1, x2, y2 = int(float(box[0])*416), int(float(box[1])*416), int(float(box[2])*416), int(float(box[3])*416)
+                        rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, color='blue', linewidth=2)
+                        axes[1, 0].add_patch(rect)
+                    axes[1, 0].axis('off')
+
+                    # Detection mask
+                    axes[1, 1].imshow(my_mask, cmap='hot')
+                    axes[1, 1].set_title('Detection Mask')
+                    axes[1, 1].axis('off')
+
+                    plt.suptitle(f'{args.dataset.upper()} {args.n_patches}p: {nameee}')
+                    plt.tight_layout()
+                    save_path = os.path.join(args.save_images_dir, f'{args.dataset}_{args.n_patches}p_{nameee}.png')
+                    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+                    plt.close()
+                    print(f'Saved: {save_path}')
 
             else:
                 best_arr=[]
