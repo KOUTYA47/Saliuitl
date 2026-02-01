@@ -398,4 +398,26 @@ docker compose run --rm saliuitl python saliuitl.py \
 
 ```text
 - 2026-02-01: Lead agent により作成（論文再現タスク）
+- 2026-02-02: 再現実験完了、改善実験（閾値スイープ、クリーン評価）完了、画像保存機能追加
 ```
+
+---
+
+## 11. 次のアクション（2026-02-02時点）
+
+### 優先度: 高
+- [ ] Table 2 (nmAP) の再現実験を実施
+  - 現在の出力には nmAP が含まれていない
+  - saliuitl.py の出力形式を確認し、nmAP計算方法を特定する
+
+### 優先度: 中
+- [ ] Detection Maskの可視化を改善
+  - 特徴マップ（13x13）を画像サイズ（416x416）にアップサンプリング
+  - ヒートマップとして復元画像にオーバーレイ
+- [ ] CIFAR/ImageNet用Attack Detectorチェックポイントの確認
+  - `checkpoints/final_classification/` が存在しない
+  - 論文著者への問い合わせ or 再学習が必要か判断
+
+### 優先度: 低
+- [ ] 異なるインペインティング手法（zero, mean）との比較実験
+- [ ] effective_files の選定基準を調査（論文を精読）

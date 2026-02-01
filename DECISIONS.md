@@ -30,3 +30,37 @@
 ### 備考（Notes）
 - 将来見直す可能性
 - 未解決の懸念
+
+---
+
+## D-2026-02-02: 復元画像保存機能をsaliuitl.py本体に追加
+
+### 背景（Background）
+- ユーザーから復元画像の出力を要求された
+- 当初、別スクリプト（save_recovered_images.py）を作成したが、復元ロジックが複雑で正確に再現できなかった
+
+### 検討した選択肢（Options）
+- Option A: 別スクリプトで復元ロジックを再実装
+- Option B: saliuitl.py に画像保存オプションを追加
+- Option C: saliuitl.py の出力をパイプして後処理
+
+### 判断（Decision）
+- 採用した選択肢：Option B（saliuitl.py本体に追加）
+
+### 判断理由（Rationale）
+- 復元処理が反復的で複雑（β値ごとにDBSCANクラスタリング→インペインティング→再検出）
+- 本体に追加すれば、`in_img`（復元画像）に直接アクセス可能
+- 追加オプション（--save_images）でデフォルト動作に影響なし
+
+### 却下理由（Why not others）
+- Option A: 別スクリプトでの再実装は不正確になった（マスクが大きすぎる問題）
+- Option C: 復元途中の画像はstdoutに出力されないため不可
+
+### 影響範囲（Impact）
+- saliuitl.py に3つの引数追加（--save_images, --save_images_dir, --save_images_limit）
+- matplotlib の条件付きインポート追加
+- 復元処理後に画像保存コード追加（約50行）
+
+### 備考（Notes）
+- 物体検出（INRIA/VOC）のみ対応、分類タスク（CIFAR/ImageNet）は未対応
+- Detection Maskの可視化に問題あり（特徴マップサイズが小さい）
