@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(git -C /mnt/d/csprog/ooki/Saliuitl log --oneline)",
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(docker compose run:*)",
+      "Bash(for thresh in 0.1 0.3 0.5 0.7 0.9)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(done)"
+    ]
+  }
+}
