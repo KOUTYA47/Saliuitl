@@ -8,6 +8,9 @@ data/**/.DS_Store
 checkpoints/
 weights/
 
+# Apptainer/Singularity containers
+*.sif
+
 # Experiment outputs (keep config/run scripts, ignore bulky outputs)
 experiments/**/logs/
 experiments/**/artifacts/
