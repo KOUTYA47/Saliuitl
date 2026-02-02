@@ -12,7 +12,10 @@
       "Bash(do)",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(./scripts/remote.sh:*)"
     ]
   }
 }
