@@ -82,6 +82,8 @@ fi
 export REMOTE_HOST REMOTE_BASE REMOTE_PROJECT REMOTE_DIR REMOTE_DIR_OVERRIDE
 export REMOTE_REQUIRE_TMUX REMOTE_LOCK REMOTE_SSH_OPTS APPTAINER_SIF
 export REMOTE_GIT_URL REMOTE_GIT_BRANCH
+export REMOTE_GIT_USER_NAME="${REMOTE_GIT_USER_NAME:-}"
+export REMOTE_GIT_USER_EMAIL="${REMOTE_GIT_USER_EMAIL:-}"
 export REMOTE_SIF_DIR="${REMOTE_SIF_DIR:-}"
 export APPTAINER_BIND="${APPTAINER_BIND:-}"
 export APPTAINER_OPTS="${APPTAINER_OPTS:-}"
@@ -103,12 +105,16 @@ File System:
 
 Git:
   status                      Show git status (short)
+  add [files]                 Git add (default: all)
+  commit <msg>                Git commit with message
+  commit-all <msg>            Git add -A && commit
   pull                        Git pull in REMOTE_DIR
-  clone [url]                 Clone repo to REMOTE_DIR (uses REMOTE_GIT_URL if no arg)
+  push                        Push from remote to origin
+  sync                        Push local, then pull on remote
+  clone [url]                 Clone repo to REMOTE_DIR
   diff                        Show git diff
   log [N]                     Show last N commits (default 10)
-  sync                        Push local, then pull on remote
-  push                        Push from remote to origin
+  git-config [name] [email]   Set git user.name and user.email on remote
 
 Tmux:
   tmux-ls                     List all tmux sessions
@@ -156,18 +162,28 @@ case "$cmd" in
   # Git
   status)
     cmd_status;;
+  add)
+    cmd_add "${1:-.}";;
+  commit)
+    [[ $# -ge 1 ]] || die "commit requires <message>" 2
+    cmd_commit "$1";;
+  commit-all)
+    [[ $# -ge 1 ]] || die "commit-all requires <message>" 2
+    cmd_commit_all "$1";;
   pull)
     cmd_pull;;
+  push)
+    cmd_push;;
+  sync)
+    cmd_sync;;
   clone)
     cmd_clone "${1:-}";;
   diff)
     cmd_diff;;
   log)
     cmd_log "${1:-10}";;
-  sync)
-    cmd_sync;;
-  push)
-    cmd_push;;
+  git-config)
+    cmd_git_config "${1:-}" "${2:-}";;
 
   # Tmux
   tmux-ls|sessions)

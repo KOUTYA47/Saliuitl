@@ -5,6 +5,26 @@ cmd_status() {
   remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git status -sb"
 }
 
+cmd_add() {
+  local files="${1:-.}"
+  ensure_remote_repo
+  remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git add $files; echo '[add] done'; git status -sb"
+}
+
+cmd_commit() {
+  local msg="${1:-}"
+  [[ -n "$msg" ]] || die "commit requires <message>" 2
+  ensure_remote_repo
+  remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git commit -m '$msg'; echo '[commit] done'"
+}
+
+cmd_commit_all() {
+  local msg="${1:-}"
+  [[ -n "$msg" ]] || die "commit-all requires <message>" 2
+  ensure_remote_repo
+  remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git add -A; git commit -m '$msg'; echo '[commit-all] done'"
+}
+
 cmd_pull() {
   ensure_remote_repo
   remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git pull"
@@ -54,4 +74,15 @@ cmd_push() {
   ensure_remote_repo
   echo "[push] Pushing from remote to origin..."
   remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git push"
+}
+
+cmd_git_config() {
+  local name="${1:-$REMOTE_GIT_USER_NAME}"
+  local email="${2:-$REMOTE_GIT_USER_EMAIL}"
+
+  [[ -n "$name" ]] || die "git-config requires name (set REMOTE_GIT_USER_NAME or pass as argument)" 2
+  [[ -n "$email" ]] || die "git-config requires email (set REMOTE_GIT_USER_EMAIL or pass as argument)" 2
+
+  ensure_remote_repo
+  remote_shq "set -e; cd $(printf "%q" "$REMOTE_DIR"); git config user.name '$name'; git config user.email '$email'; echo '[git-config] user.name: $name'; echo '[git-config] user.email: $email'"
 }
