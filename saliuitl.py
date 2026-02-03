@@ -391,6 +391,8 @@ if args.dataset in ['inria', 'voc']:
                             imgneer[max(2*x-1,0):min(2*x+1,416)+1, max(2*y-1,0):min(2*y+1,416)+1]=bfm_old[x,y]
 
                     bfm_old=bfm
+                    # Accumulate inpainting mask for visualization
+                    my_mask = np.maximum(my_mask, imgneer * (1.0 - beta_big))
                     p=np.where(imgneer>0.0)
                     in_img=p_img.detach().clone()
                     #Saliuitl*
@@ -454,12 +456,12 @@ if args.dataset in ['inria', 'voc']:
                 # Save visualization images
                 if args.save_images and saved_images_count < args.save_images_limit:
                     saved_images_count += 1
-                    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+                    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
                     # Clean image with boxes
                     clean_np = padded_img.cpu().numpy().transpose(1, 2, 0)
                     axes[0, 0].imshow(clean_np)
-                    axes[0, 0].set_title(f'Clean ({len(cbb)} detections)')
+                    axes[0, 0].set_title(f'Clean ({len(cbb)} detections)', fontsize=12)
                     for box in cbb:
                         x1, y1, x2, y2 = int(box[0]*416), int(box[1]*416), int(box[2]*416), int(box[3]*416)
                         rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, color='green', linewidth=2)
@@ -469,7 +471,7 @@ if args.dataset in ['inria', 'voc']:
                     # Attacked image with boxes
                     attacked_np = p_img.squeeze(0).cpu().numpy().transpose(1, 2, 0)
                     axes[0, 1].imshow(attacked_np)
-                    axes[0, 1].set_title(f'Attacked ({len(adb)} detections)')
+                    axes[0, 1].set_title(f'Attacked ({len(adb)} detections)', fontsize=12)
                     for box in adb:
                         x1, y1, x2, y2 = int(box[0]*416), int(box[1]*416), int(box[2]*416), int(box[3]*416)
                         rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, color='red', linewidth=2)
@@ -478,20 +480,44 @@ if args.dataset in ['inria', 'voc']:
 
                     # Recovered image with boxes
                     recovered_np = in_img.squeeze(0).cpu().numpy().transpose(1, 2, 0)
-                    axes[1, 0].imshow(np.clip(recovered_np, 0, 1))
-                    axes[1, 0].set_title(f'Recovered ({len(sdb)} detections) - {"Success" if not suc_atk else "Failed"}')
+                    axes[0, 2].imshow(np.clip(recovered_np, 0, 1))
+                    axes[0, 2].set_title(f'Recovered ({len(sdb)} det.) - {"Success" if not suc_atk else "Failed"}', fontsize=12)
                     for box in sdb:
                         x1, y1, x2, y2 = int(float(box[0])*416), int(float(box[1])*416), int(float(box[2])*416), int(float(box[3])*416)
                         rect = Rectangle((x1, y1), x2-x1, y2-y1, fill=False, color='blue', linewidth=2)
-                        axes[1, 0].add_patch(rect)
+                        axes[0, 2].add_patch(rect)
+                    axes[0, 2].axis('off')
+
+                    # Feature map heatmap (upsampled to image size)
+                    fm_viz = np.sum(fm_np, axis=0)  # Sum across channels
+                    fm_viz = (fm_viz - fm_viz.min()) / (fm_viz.max() - fm_viz.min() + 1e-8)  # Normalize
+                    # Upsample feature map to image size using scipy
+                    from scipy.ndimage import zoom
+                    scale_factor = 416 / fm_viz.shape[0]
+                    fm_upsampled = zoom(fm_viz, scale_factor, order=1)
+                    axes[1, 0].imshow(attacked_np)
+                    axes[1, 0].imshow(fm_upsampled, cmap='jet', alpha=0.5)
+                    axes[1, 0].set_title(f'Feature Map Heatmap ({fm_viz.shape[0]}x{fm_viz.shape[1]})', fontsize=12)
                     axes[1, 0].axis('off')
 
-                    # Detection mask
-                    axes[1, 1].imshow(my_mask, cmap='hot')
-                    axes[1, 1].set_title('Detection Mask')
+                    # Inpainting mask (accumulated)
+                    if my_mask.max() > 0:
+                        mask_norm = my_mask / my_mask.max()
+                    else:
+                        mask_norm = my_mask
+                    axes[1, 1].imshow(attacked_np)
+                    axes[1, 1].imshow(mask_norm, cmap='hot', alpha=0.6)
+                    axes[1, 1].set_title('Inpainting Mask Overlay', fontsize=12)
                     axes[1, 1].axis('off')
 
-                    plt.suptitle(f'{args.dataset.upper()} {args.n_patches}p: {nameee}')
+                    # Inpainting mask only
+                    axes[1, 2].imshow(my_mask, cmap='hot')
+                    inpaint_pixels = np.sum(my_mask > 0)
+                    inpaint_ratio = inpaint_pixels / my_mask.size * 100
+                    axes[1, 2].set_title(f'Inpainting Mask ({inpaint_ratio:.1f}% pixels)', fontsize=12)
+                    axes[1, 2].axis('off')
+
+                    plt.suptitle(f'{args.dataset.upper()} {args.n_patches}p: {nameee}', fontsize=14, fontweight='bold')
                     plt.tight_layout()
                     save_path = os.path.join(args.save_images_dir, f'{args.dataset}_{args.n_patches}p_{nameee}.png')
                     plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -742,7 +768,7 @@ if args.save_outcomes:
     if args.clean:
         fname = fname + '_clean'
     with open(fname + '.npy', 'wb') as f:
-        np.save(f, np.array(outcome_array))
+        np.save(f, np.array(outcome_array, dtype=object))
 
 if args.performance:
     deer=os.path.join(args.savedir)

@@ -15,7 +15,10 @@
       "Bash(ssh:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(./scripts/remote.sh:*)"
+      "Bash(./scripts/remote.sh:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker compose:*)",
+      "Bash(unzip:*)"
     ]
   }
 }
