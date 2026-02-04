@@ -196,9 +196,11 @@ BD = {x * max(mi) / 20}  for x in 0..19
 2. **Attack Detectorの汎化性能**
    - 訓練データと異なる攻撃パターンへの汎化は未評価
 
-3. **ResNet50チェックポイント**
-   - CIFAR/ImageNet用のADチェックポイントが提供されていない
-   - torchvision pretrainedで代用中
+3. **ResNet50チェックポイント** ✅ 解決済み（2026-02-04）
+   - CIFAR/ImageNet用のADチェックポイントは `checkpoints/final_classification/` に存在
+   - CIFAR用: `2dcnn_raw_cifar_{2,5,10,25}_atk_det.pth`
+   - ImageNet用: `2dcnn_raw_imagenet_{2,5,10,25}_atk_det.pth`
+   - 被害者モデル: `checkpoints/resnet50_192_cifar.pth`
 
 ### 将来崩れる可能性がある前提
 
@@ -218,3 +220,4 @@ BD = {x * max(mi) / 20}  for x in 0..19
 ## 更新履歴
 
 - 2026-02-02: 初版作成（論文Section 4.1、saliuitl.pyから抽出）
+- 2026-02-04: CIFAR/ImageNet用ADチェックポイントの存在を確認、誤記載を修正

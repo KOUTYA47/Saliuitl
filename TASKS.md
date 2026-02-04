@@ -400,11 +400,24 @@ docker compose run --rm saliuitl python saliuitl.py \
 - 2026-02-01: Lead agent により作成（論文再現タスク）
 - 2026-02-02: 再現実験完了、改善実験（閾値スイープ、クリーン評価）完了、画像保存機能追加
 - 2026-02-03: 計算時間比較実験完了、スライド資料生成完了
+- 2026-02-04: スライド表画像化、失敗分析図作成、ADチェックポイント確認、nmAP実験環境確認
+- 2026-02-04: マスクサイズ上限（5.5%）説明図作成、スライド更新
 ```
 
 ---
 
-## 11. 次のアクション（2026-02-03時点）
+## 11. 次のアクション（2026-02-04更新）
+
+### 完了済み（2026-02-04 午後）
+- [x] マスクサイズ上限（5.5%）説明図の作成 ✅
+  - `mask_size_limit.png`, `mask_size_skip_flow.png` 生成
+  - Slide 12に反映
+
+### 完了済み（2026-02-04 午前）
+- [x] スライド用表のLaTeX画像化（6点生成） ✅
+- [x] S-06: 失敗分析サマリー図作成 ✅
+- [x] CIFAR/ImageNet用ADチェックポイント確認 ✅ → 全て存在確認
+- [x] Table 2 (nmAP) 実験環境確認 ✅ → 実行可能
 
 ### 完了済み（2026-02-03）
 - [x] TASK-20260203-PERF: 計算時間比較実験 ✅
@@ -412,18 +425,17 @@ docker compose run --rm saliuitl python saliuitl.py \
 - [x] TASK-20260203-DRAFT: スライド草案作成 ✅
 
 ### 優先度: 高
-- [ ] **スライドをPowerPointへ変換**
-  - `docs/slides_draft_final.md`（12枚構成）を実際のスライドに
-  - 図表配置の調整
-- [ ] S-06: 失敗分析サマリー図作成
+- [ ] **スライドPPTX最終確認**（ユーザー側作業）
+  - `docs/slides_draft_final.md` → PPTX変換
+  - 表画像の配置調整
+  - 新規追加図（mask_size_limit.png）の配置確認
 
 ### 優先度: 中
-- [ ] Table 2 (nmAP) 再現実験（フルデータ）
+- [ ] Table 2 (nmAP) 再現実験の実行
   - 実行スクリプト: `experiments/exp_20260202_nmap/run.sh`
-  - Docker環境必要
-- [ ] CIFAR/ImageNet用Attack Detectorチェックポイントの確認
-  - `checkpoints/final_classification/` が存在しない
-  - 論文著者への問い合わせ or 再学習が必要か判断
+  - Docker環境で実行可能
+- [ ] CIFAR/ImageNet 実験の実行
+  - チェックポイント: `checkpoints/final_classification/` に存在確認済み
 
 ### 優先度: 低
 - [ ] 時間差の原因調査（GPU環境の違い: T4 vs 実験環境）
@@ -921,4 +933,113 @@ task:
 - 2026-02-03: Lead agent により作成
 - 2026-02-03: 初期草案（13スライド版）作成
 - 2026-02-03: 中間発表ベースで簡潔化、最終版（12スライド）作成
+```
+
+---
+
+# TASK ENTRIES: 2026-02-02 追加実験・分析
+
+---
+
+## TASK-20260202-ANALYSIS: 検出・復元詳細分析
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260202-ANALYSIS
+  title: "検出・復元パイプラインの詳細分析"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+    - Result-Analyst
+  status: completed
+  priority: high
+  created: 2026-02-02
+  completed: 2026-02-02
+```
+
+### 2. サブタスク一覧
+
+| Sub-ID | タスク | 担当 | 状態 | 結果参照 |
+|--------|--------|------|------|----------|
+| A | 検出スコア分布調査 | Runner | ✅ done | R-2026-02-02-A |
+| B | 復元画像可視化実験 | Runner | ✅ done | R-2026-02-02-B |
+| C | nmAP再現実験（Table 2） | Runner | ✅ done | R-2026-02-02-C |
+| D | Detection Mask可視化改善 | Builder | ✅ done | R-2026-02-02-D |
+| E | 回復画像品質問題分析 | Analyst | ✅ done | R-2026-02-02-E |
+| F | 視覚的回復品質改善実験 | Runner | ✅ done | R-2026-02-02-F |
+
+### 3. 主要な発見
+
+1. **検出スコア分布**: 全サンプルでスコア > 0.99（閾値変更が影響しない理由）
+2. **パッチ残存問題**: 「成功」判定でも敵対的パッチが視覚的に残存
+3. **解像度ミスマッチ**: 26×26→416×416のスケーリングが根本的ボトルネック
+4. **Attention Hijacking**: パッチが検出器の注意を対象物体から奪う
+
+### 4. 生成物
+
+| ファイル | 内容 |
+|---------|------|
+| experiments/exp_20260202_recovery_viz/ | 復元画像可視化 |
+| experiments/exp_20260202_nmap/ | nmAP再現実験 |
+| experiments/exp_20260202_viz_improved/ | 改善版可視化 |
+| experiments/exp_20260202_failure_analysis/ | 失敗分析 |
+| experiments/exp_20260202_visual_recovery/ | 視覚的回復実験 |
+
+---
+
+# TASK ENTRIES: コード改善・ツール作成
+
+---
+
+## TASK-TOOLS: 分析ツール・スクリプト作成
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-TOOLS
+  title: "分析ツール・スクリプト作成"
+  owner: Lead
+  status: completed
+  created: 2026-02-02
+  completed: 2026-02-04
+```
+
+### 2. saliuitl.py への機能追加（2026-02-02）
+
+| オプション | 説明 |
+|-----------|------|
+| `--save_images` | 復元画像を保存（Clean/Attacked/Recovered/Mask） |
+| `--save_images_dir` | 保存先ディレクトリ |
+| `--save_images_limit` | 保存枚数上限 |
+| `--save_scores` | 検出スコアを保存 |
+| `--save_outcomes` | 検出結果詳細を保存 |
+
+**関連**: DECISIONS.md D-2026-02-02 参照
+
+### 3. 新規スクリプト一覧
+
+| ファイル | 用途 | 作成日 |
+|---------|------|--------|
+| `compute_nmap.py` | nmAP計算 | 2026-02-02 |
+| `analysis/oracle_inpaint_test.py` | Oracle inpaintingテスト | 2026-02-02 |
+| `analysis/gradcam_visualize.py` | Grad-CAM可視化 | 2026-02-02 |
+| `analysis/plot_nmap_results.py` | nmAP結果プロット | 2026-02-02 |
+| `analysis/plot_slides_figures.py` | スライド図表生成 | 2026-02-03 |
+| `analysis/plot_timing_comparison.py` | 計算時間比較 | 2026-02-03 |
+| `analysis/extract_timing_results.py` | 計算時間抽出 | 2026-02-03 |
+| `scripts/generate_table_images.py` | LaTeX表画像化 | 2026-02-04 |
+| `scripts/create_failure_analysis_figure.py` | 失敗分析図生成 | 2026-02-04 |
+| `scripts/replace_tables_in_html.py` | HTML表置換 | 2026-02-04 |
+| `scripts/create_mask_size_limit_figure.py` | マスクサイズ上限説明図 | 2026-02-04 |
+
+### 4. 履歴
+
+```text
+- 2026-02-02: saliuitl.py機能追加、分析スクリプト作成
+- 2026-02-03: スライド用図表生成スクリプト作成
+- 2026-02-04: 表画像化・失敗分析図生成スクリプト作成
+- 2026-02-04: 監査により本エントリ追加
 ```

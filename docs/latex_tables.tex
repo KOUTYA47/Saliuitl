@@ -1,0 +1,104 @@
+% LaTeX Tables for Saliuitl Presentation
+% 必要なパッケージ（プリアンブルに追加）:
+% \usepackage{booktabs}
+% \usepackage{array}
+% \usepackage[utf8]{inputenc}
+% \usepackage[T1]{fontenc}
+
+%============================================================
+% Slide 5: データセット・モデル
+%============================================================
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lll}
+\toprule
+タスク & データセット & モデル \\
+\midrule
+物体検出 & INRIA, VOC & YOLOv2 \\
+画像分類 & ImageNet, CIFAR-10 & ResNet-50 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%============================================================
+% Slide 5: パラメータ
+%============================================================
+\begin{table}[htbp]
+\centering
+\begin{tabular}{ll}
+\toprule
+項目 & 値 \\
+\midrule
+閾値集合サイズ $|\mathcal{B}|$ & 20 \\
+インペインティング & biharmonic \\
+攻撃検出閾値 $\alpha^*$ & 0.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%============================================================
+% Slide 6: Recovery Rate
+%============================================================
+\begin{table}[htbp]
+\centering
+\begin{tabular}{llccc}
+\toprule
+Dataset & Attack & 論文 & 再現 & 差異 \\
+\midrule
+VOC & 1-patch & 0.540 & 0.538 & $-0.002$ \\
+VOC & 2-patch & 0.538 & 0.526 & $-0.012$ \\
+INRIA & 1-patch & 0.591 & 0.792 & $+0.201$ \\
+CIFAR & 1-patch & 0.974 & 0.929 & $-0.045$ \\
+ImageNet & 1-patch & 0.887 & 0.867 & $-0.020$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%============================================================
+% Slide 7: nmAP
+%============================================================
+\begin{table}[htbp]
+\centering
+\begin{tabular}{llcc}
+\toprule
+Dataset & Metric & 論文 & 再現 \\
+\midrule
+VOC 1p & Adv. nmAP & 0.509 & 0.694 \\
+VOC 1p & Clean nmAP & 0.995 & 1.000 \\
+INRIA 1p & Adv. nmAP & 0.690 & 0.789 \\
+INRIA 1p & Clean nmAP & 1.000 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%============================================================
+% Slide 8: 計算時間比較
+%============================================================
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lcccr}
+\toprule
+Dataset & $|\mathcal{B}|$ & 論文 & 実測 & 比率 \\
+\midrule
+VOC & 4 & 0.30s & 0.07s & 23\% \\
+VOC & 20 & 1.50s & 0.46s & 30\% \\
+INRIA & 20 & 1.50s & 0.41s & 27\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%============================================================
+% Slide 12: 結論
+%============================================================
+\begin{table}[htbp]
+\centering
+\begin{tabular}{ll}
+\toprule
+指標 & 結果 \\
+\midrule
+Recovery Rate & 概ね再現（VOCで$\pm 2\%$） \\
+nmAP & 再現可能（値は高め） \\
+計算時間 & 論文の23--30\% \\
+\bottomrule
+\end{tabular}
+\end{table}
