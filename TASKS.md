@@ -402,22 +402,24 @@ docker compose run --rm saliuitl python saliuitl.py \
 - 2026-02-03: 計算時間比較実験完了、スライド資料生成完了
 - 2026-02-04: スライド表画像化、失敗分析図作成、ADチェックポイント確認、nmAP実験環境確認
 - 2026-02-04: マスクサイズ上限（5.5%）説明図作成、スライド更新
+- 2026-02-05: Oracle Inpainting Test全データセット実施完了
 ```
 
 ---
 
-## 11. 次のアクション（2026-02-04更新）
+## 11. 次のアクション（2026-02-05更新）
 
-### 完了済み（2026-02-04 午後）
+### 完了済み（2026-02-05）
+- [x] TASK-20260205-ORACLE: Oracle Inpainting Test全データセット ✅
+  - 物体検出（INRIA/VOC）: 7シナリオ完了（INRIA moはデータなし）
+  - 画像分類（CIFAR/ImageNet）: 8シナリオ完了
+  - **主要発見**: 物体検出ではOracle効果が大きい（+22.8%）、画像分類では限定的（+0.8%）
+
+### 完了済み（2026-02-04）
 - [x] マスクサイズ上限（5.5%）説明図の作成 ✅
-  - `mask_size_limit.png`, `mask_size_skip_flow.png` 生成
-  - Slide 12に反映
-
-### 完了済み（2026-02-04 午前）
 - [x] スライド用表のLaTeX画像化（6点生成） ✅
 - [x] S-06: 失敗分析サマリー図作成 ✅
-- [x] CIFAR/ImageNet用ADチェックポイント確認 ✅ → 全て存在確認
-- [x] Table 2 (nmAP) 実験環境確認 ✅ → 実行可能
+- [x] CIFAR/ImageNet用ADチェックポイント確認 ✅
 
 ### 完了済み（2026-02-03）
 - [x] TASK-20260203-PERF: 計算時間比較実験 ✅
@@ -425,22 +427,18 @@ docker compose run --rm saliuitl python saliuitl.py \
 - [x] TASK-20260203-DRAFT: スライド草案作成 ✅
 
 ### 優先度: 高
+- [ ] **Oracle Test結果の考察・論文への反映**
+  - インペインティング品質の定量的評価完了（物体検出: +22.8%、画像分類: +0.8%）
+  - 改善方向性の検討（検出率向上 > マスク精度向上 > インペインティング品質向上）
 - [ ] **スライドPPTX最終確認**（ユーザー側作業）
-  - `docs/slides_draft_final.md` → PPTX変換
-  - 表画像の配置調整
-  - 新規追加図（mask_size_limit.png）の配置確認
 
 ### 優先度: 中
 - [ ] Table 2 (nmAP) 再現実験の実行
-  - 実行スクリプト: `experiments/exp_20260202_nmap/run.sh`
-  - Docker環境で実行可能
-- [ ] CIFAR/ImageNet 実験の実行
-  - チェックポイント: `checkpoints/final_classification/` に存在確認済み
+- [ ] **検出率向上の検討**: INRIA trigのDetected=54.5%が低い原因調査
 
 ### 優先度: 低
-- [ ] 時間差の原因調査（GPU環境の違い: T4 vs 実験環境）
-- [ ] CIFAR/ImageNet での計算時間追加計測
-- [ ] 異なるインペインティング手法（zero, mean）との比較実験
+- [ ] 異なるインペインティング手法（zero, mean, diffusion）との比較実験
+- [ ] 高解像度特徴マップ（Layer 10: 52×52）での実験
 
 ---
 
@@ -1042,4 +1040,119 @@ task:
 - 2026-02-03: スライド用図表生成スクリプト作成
 - 2026-02-04: 表画像化・失敗分析図生成スクリプト作成
 - 2026-02-04: 監査により本エントリ追加
+```
+
+---
+
+# TASK ENTRIES: Oracle Inpainting Test
+
+---
+
+## TASK-20260205-ORACLE: Oracle Inpainting Test（全データセット）
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260205-ORACLE
+  title: "Oracle Inpainting Test - 全データセット評価"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+  status: completed
+  priority: high
+  created: 2026-02-05
+  completed: 2026-02-05
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- R-2026-02-02-Eで「パッチ残存問題」が発見された
+- R-2026-02-02-Fで小規模Oracle Test（VOC/INRIA各5画像）を実施
+- 全データセットでの定量的評価が未実施
+
+[目的]
+- 全データセット（INRIA, VOC, CIFAR, ImageNet）でOracle Testを実施
+- Biharmonic再現実験との差分を定量化
+- マスク精度がボトルネックであることを検証
+```
+
+### 3. Oracle Inpaintingの定義
+
+**Oracle Inpainting (`--inpaint oracle`)**:
+- システムが生成したマスク領域に、クリーン画像のピクセルをそのまま貼り付ける
+- **インペインティング品質の上限**を示す
+- **注意**: マスクの位置・形状は変わらない（マスク精度の問題は残る）
+
+### 4. 結果サマリ（全15パターン）
+
+#### 物体検出（7パターン）
+
+| Dataset | Attack | Biharmonic RR | Oracle RR | Detected | Δ(O-B) |
+|---------|--------|---------------|-----------|----------|--------|
+| INRIA   | 1p     | 0.7917        | **0.8750** | 0.9583  | +0.083 |
+| INRIA   | 2p     | 0.8571        | **1.0000** | 1.0000  | +0.143 |
+| INRIA   | trig   | 0.3636        | **0.5455** | 0.5455  | +0.182 |
+| VOC     | 1p     | 0.5385        | **0.7692** | 1.0000  | +0.231 |
+| VOC     | 2p     | 0.5263        | **0.7368** | 1.0000  | +0.211 |
+| VOC     | trig   | 0.1500        | **0.4500** | 0.8500  | +0.300 |
+| VOC     | mo     | 0.2593        | **0.7037** | 1.0000  | +0.444 |
+
+**平均改善**: +22.8%
+
+#### 画像分類（8パターン）
+
+| Dataset  | Attack | Biharmonic RR | Oracle RR | Detected | Δ(O-B) |
+|----------|--------|---------------|-----------|----------|--------|
+| CIFAR    | 1p     | 0.9286        | 0.9286    | 0.9286   | 0.000  |
+| CIFAR    | 2p     | 0.8000        | 0.8000    | 0.8667   | 0.000  |
+| CIFAR    | 4p     | 0.9333        | 0.8667    | 1.0000   | -0.067 |
+| CIFAR    | trig   | 0.8667        | 0.8000    | 1.0000   | -0.067 |
+| ImageNet | 1p     | 0.8667        | 0.7333    | 1.0000   | -0.133 |
+| ImageNet | 2p     | 0.6667        | 0.8000    | 0.8667   | +0.133 |
+| ImageNet | 4p     | 0.4667        | 0.6667    | 0.9333   | +0.200 |
+| ImageNet | trig   | 0.4000        | 0.4000    | 0.6667   | 0.000  |
+
+**平均改善**: +0.8%
+
+### 5. 主要な発見
+
+1. **物体検出ではOracleが効果的**
+   - 平均+22.8%の改善
+   - マスク精度改善の余地が大きい
+
+2. **画像分類ではOracle効果が限定的**
+   - 平均+0.8%（一部でマイナス）
+   - Biharmonicでも十分な性能
+
+3. **検出率がRRに大きく影響**
+   - INRIA trig: Detected=54.5% → Oracle RR=54.5%
+   - 検出されないサンプルは復元できない
+
+4. **VOC moが最大改善**
+   - +44.4%（0.2593→0.7037）
+   - Multi-objectパッチへの対応改善が効果的
+
+### 6. 成功条件（Acceptance Criteria）
+
+```text
+- [AC-1] 全15パターン（INRIA moなし）でOracle Test完了 ✅
+- [AC-2] Biharmonic再現実験との比較表作成 ✅
+- [AC-3] 統計サマリ（平均改善幅）算出 ✅
+- [AC-4] RESULT_LOG.mdに結果記録 ✅
+```
+
+### 7. 生成物
+
+| ファイル | 内容 |
+|---------|------|
+| `experiments/exp_20260205_oracle_full/results/oracle_all_results.csv` | 全15パターンCSV |
+| `experiments/exp_20260205_oracle_full/results/oracle_full_comparison.md` | 詳細レポート |
+
+### 8. 履歴
+
+```text
+- 2026-02-05: タスク作成、全15パターン実験実行、完了
 ```

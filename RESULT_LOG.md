@@ -282,3 +282,91 @@ YOLOv2 Layer 13でGrad-CAMを生成し、Clean/Attackedのattention比較。
 - `analysis/tables/measured_computational_cost.csv`
 - `docs/slides_material/timing_paper_vs_measured.pdf/png`
 - `docs/slides_material/timing_scaling.pdf/png`
+
+---
+
+## R-2026-02-05: Oracle Inpainting Test（全15パターン）
+
+### 実験ID
+`exp_20260205_oracle_full`
+
+### 目的
+全データセット・全攻撃パターンでOracle Inpainting Testを実施し、biharmonic再現実験との差分を明らかにする。
+Oracle Inpaintingは、マスク領域にクリーン画像のピクセルを貼り付ける手法で、**インペインティング品質の上限**を示す。
+
+### パラメータ
+- ensemble_step: 5
+- inpainting_step: 5
+- inpaint: **oracle**
+- nn_det_threshold: 0.5
+
+### 結果（全15パターン）
+
+#### 物体検出（Object Detection）- 7パターン
+
+| Dataset | Attack | Paper RR | Biharmonic RR | Oracle RR | Detected | Δ(O-B) |
+|---------|--------|----------|---------------|-----------|----------|--------|
+| INRIA   | 1p     | 0.5909   | 0.7917        | **0.8750** | 0.9583   | +0.083 |
+| INRIA   | 2p     | 0.3871   | 0.8571        | **1.0000** | 1.0000   | +0.143 |
+| INRIA   | trig   | 0.4737   | 0.3636        | **0.5455** | 0.5455   | +0.182 |
+| VOC     | 1p     | 0.5404   | 0.5385        | **0.7692** | 1.0000   | +0.231 |
+| VOC     | 2p     | 0.5376   | 0.5263        | **0.7368** | 1.0000   | +0.211 |
+| VOC     | trig   | 0.4244   | 0.1500        | **0.4500** | 0.8500   | +0.300 |
+| VOC     | mo     | 0.3955   | 0.2593        | **0.7037** | 1.0000   | +0.444 |
+
+**物体検出 平均改善**: +0.228 (+22.8%)
+
+#### 画像分類（Image Classification）- 8パターン
+
+| Dataset  | Attack | Paper RR | Biharmonic RR | Oracle RR | Detected | Δ(O-B) |
+|----------|--------|----------|---------------|-----------|----------|--------|
+| CIFAR    | 1p     | 0.9738   | 0.9286        | 0.9286    | 0.9286   | 0.000  |
+| CIFAR    | 2p     | 0.9789   | 0.8000        | 0.8000    | 0.8667   | 0.000  |
+| CIFAR    | 4p     | 0.9747   | 0.9333        | 0.8667    | 1.0000   | -0.067 |
+| CIFAR    | trig   | 0.8566   | 0.8667        | 0.8000    | 1.0000   | -0.067 |
+| ImageNet | 1p     | 0.8869   | 0.8667        | 0.7333    | 1.0000   | -0.133 |
+| ImageNet | 2p     | 0.8535   | 0.6667        | 0.8000    | 0.8667   | +0.133 |
+| ImageNet | 4p     | 0.8436   | 0.4667        | 0.6667    | 0.9333   | +0.200 |
+| ImageNet | trig   | 0.5065   | 0.4000        | 0.4000    | 0.6667   | 0.000  |
+
+**画像分類 平均改善**: +0.008 (+0.8%)
+
+### 統計サマリ
+
+| タスク | 平均Oracle RR | 平均Biharmonic RR | 平均改善幅 |
+|--------|--------------|------------------|-----------|
+| 物体検出（7シナリオ） | 0.726 | 0.498 | **+0.228** |
+| 画像分類（8シナリオ） | 0.750 | 0.741 | +0.008 |
+| **全体（15シナリオ）** | 0.739 | 0.628 | **+0.111** |
+
+### 主要な発見
+
+1. **物体検出ではOracleが効果的**: 平均+22.8%の改善。マスク精度改善の余地が大きい。
+
+2. **画像分類ではOracle効果が限定的**: 平均+0.8%の改善。一部でOracleがBiharmonicより低下。
+
+3. **検出率がRRに大きく影響**: INRIA trigではDetected=54.5%と低く、Oracle RRも54.5%に留まる。
+
+4. **VOC moが最大改善**: +44.4%（0.2593→0.7037）。Multi-objectパッチへの対応改善が効果的。
+
+### 考察
+
+#### Oracle RR ≤ Biharmonic RRのケース
+
+CIFAR 4p, CIFAR trig, ImageNet 1pで発生。原因：
+- **Oracle Inpaintingはマスクの問題を解決しない**（インペインティング品質のみ改善）
+- 検出率の差異
+- サンプル数の統計的変動
+
+#### マスク精度 vs インペインティング品質
+
+| 問題 | 物体検出への影響 | 画像分類への影響 |
+|------|----------------|----------------|
+| マスク位置の誤差 | **大** | 小 |
+| インペインティング品質 | 中 | 中 |
+
+物体検出ではマスク精度が重要であり、Oracle効果が顕著。
+
+### 生成ファイル
+- `experiments/exp_20260205_oracle_full/results/oracle_all_results.csv`
+- `experiments/exp_20260205_oracle_full/results/oracle_full_comparison.md`
