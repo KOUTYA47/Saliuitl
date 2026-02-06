@@ -1,0 +1,84 @@
+# nmAP Calculation Experiment Config
+# Date: 2026-02-02
+
+experiment:
+  id: exp_20260202_nmap
+  description: "Table 2 (nmAP) reproduction for VOC and INRIA datasets"
+  target_metrics:
+    - adversarial_nmAP
+    - clean_nmAP
+
+# 論文 Table 2 の値（比較対象）
+paper_values:
+  voc_1p:
+    adversarial_nmAP: 0.5094
+    clean_nmAP: 0.9950
+  voc_2p:
+    adversarial_nmAP: 0.5088
+    clean_nmAP: 0.9940
+  voc_trig:
+    adversarial_nmAP: 0.5043
+    clean_nmAP: 0.9942
+  voc_mo:
+    adversarial_nmAP: 0.3563
+    clean_nmAP: 0.9877
+  inria_1p:
+    adversarial_nmAP: 0.6897
+    clean_nmAP: 0.9998
+  inria_2p:
+    adversarial_nmAP: 0.5998
+    clean_nmAP: 1.0
+  inria_trig:
+    adversarial_nmAP: 0.7034
+    clean_nmAP: 0.9987
+  inria_mo:
+    adversarial_nmAP: 0.4737
+    clean_nmAP: 0.9999
+
+# 共通パラメータ
+common_params:
+  inpaint: biharmonic
+  det_net: 2dcnn_raw
+  ensemble_step: 5
+  inpainting_step: 5
+  iou_threshold: 0.5
+
+# データセット固有パラメータ
+datasets:
+  voc:
+    imgdir: data/voc/clean
+    det_net_path: checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth
+    attacks:
+      - name: 1p
+        patch_imgdir: data/voc/1p
+        effective_files: data/voc/1p/effective_1p.npy
+        n_patches: 1
+      - name: 2p
+        patch_imgdir: data/voc/2p
+        effective_files: data/voc/2p/effective_2p.npy
+        n_patches: 2
+      - name: trig
+        patch_imgdir: data/voc/trig
+        effective_files: data/voc/trig/effective_1p.npy
+        n_patches: 1
+      - name: mo
+        patch_imgdir: data/voc/mo
+        effective_files: data/voc/mo/effective_mop.npy
+        n_patches: 1
+
+  inria:
+    imgdir: data/inria/clean
+    det_net_path: checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth
+    attacks:
+      - name: 1p
+        patch_imgdir: data/inria/1p
+        effective_files: data/inria/1p/effective_1p.npy
+        n_patches: 1
+      - name: 2p
+        patch_imgdir: data/inria/2p
+        effective_files: data/inria/2p/effective_2p.npy
+        n_patches: 2
+      - name: trig
+        patch_imgdir: data/inria/trig
+        effective_files: data/inria/trig/effective_1p.npy
+        n_patches: 1
