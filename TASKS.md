@@ -403,6 +403,7 @@ docker compose run --rm saliuitl python saliuitl.py \
 - 2026-02-04: スライド表画像化、失敗分析図作成、ADチェックポイント確認、nmAP実験環境確認
 - 2026-02-04: マスクサイズ上限（5.5%）説明図作成、スライド更新
 - 2026-02-05: Oracle Inpainting Test全データセット実施完了
+- 2026-02-05: Oracle Test詳細考察完了（docs/notes/oracle_test_analysis.md）
 ```
 
 ---
@@ -414,6 +415,10 @@ docker compose run --rm saliuitl python saliuitl.py \
   - 物体検出（INRIA/VOC）: 7シナリオ完了（INRIA moはデータなし）
   - 画像分類（CIFAR/ImageNet）: 8シナリオ完了
   - **主要発見**: 物体検出ではOracle効果が大きい（+22.8%）、画像分類では限定的（+0.8%）
+- [x] **Oracle Test結果の詳細考察** ✅
+  - 考察ファイル: `docs/notes/oracle_test_analysis.md`（310行）
+  - ボトルネック階層構造を特定: 検出率 > マスク精度 > インペインティング品質
+  - タスク別改善戦略を提案
 
 ### 完了済み（2026-02-04）
 - [x] マスクサイズ上限（5.5%）説明図の作成 ✅
@@ -427,17 +432,35 @@ docker compose run --rm saliuitl python saliuitl.py \
 - [x] TASK-20260203-DRAFT: スライド草案作成 ✅
 
 ### 優先度: 高
-- [ ] **Oracle Test結果の考察・論文への反映**
-  - インペインティング品質の定量的評価完了（物体検出: +22.8%、画像分類: +0.8%）
-  - 改善方向性の検討（検出率向上 > マスク精度向上 > インペインティング品質向上）
+- [ ] **effective_filesの再生成**（TASK-20260205-EFFGEN）
+  - 現状: フルデータセット用のeffective_filesをサブセット（30枚）に適用
+  - 問題: 30枚中14枚しか評価対象にならない（CIFAR 1p）
+  - 対策: 手元のサブセットに対してeffective_filesを再生成
+  - コマンド: `--geteff` オプションで各データセット・攻撃パターンを実行
 - [ ] **スライドPPTX最終確認**（ユーザー側作業）
+- [ ] **スライドへのOracle考察反映**
+  - スライド用要約文を作成済み
+  - ボトルネック階層図の追加を検討
 
 ### 優先度: 中
-- [ ] Table 2 (nmAP) 再現実験の実行
+- [ ] Table 2 (nmAP) 再現実験の実行（全8シナリオ）
 - [ ] **検出率向上の検討**: INRIA trigのDetected=54.5%が低い原因調査
+  - DBSCANパラメータ調整（eps, min_pts）
+  - 検出閾値調整（nn_det_threshold）
+- [ ] **AD汎化性能の検証**（TASK-20260205-ADGEN）
+  - クロスデータセット評価（INRIA用ADでVOCを評価）
+  - クロス攻撃評価（1p用ADでtrig攻撃を評価）
+  - 関連研究との比較検討
 
 ### 優先度: 低
 - [ ] 異なるインペインティング手法（zero, mean, diffusion）との比較実験
+- [ ] **関連研究の詳細調査**（TASK-20260205-RELATED）
+  - NutNet, DIFFender, PATCHOUT等の手法比較
+  - Saliuitlの位置づけ・限界の明確化
+- [ ] **データセット拡張**（TASK-20260205-DATAUG）
+  - ImageNet-Patchの活用
+  - パッチ変換による拡張（回転・移動・スケール）
+  - ADの汎化性能向上のための学習データ多様化
 - [ ] 高解像度特徴マップ（Layer 10: 52×52）での実験
 
 ---
@@ -1155,4 +1178,423 @@ task:
 
 ```text
 - 2026-02-05: タスク作成、全15パターン実験実行、完了
+```
+
+---
+
+# TASK ENTRIES: effective_files再生成
+
+---
+
+## TASK-20260205-EFFGEN: 手元データ用effective_filesの再生成
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260205-EFFGEN
+  title: "手元サブセット用effective_filesの再生成"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+  status: todo
+  priority: high
+  created: 2026-02-05
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- 現在のeffective_filesはフルデータセット（数千枚）に対して生成されたもの
+- 手元のデータはサブセット（約30枚/データセット）
+- 結果として、30枚中14枚しか評価対象にならないケースがある（CIFAR 1p）
+
+[問題点]
+- 16枚が「uneffective」扱いだが、手元データでの攻撃成功/失敗を確認していない
+- 評価の分母が不正確になる
+- RR/LPRの計算が論文定義と乖離する可能性
+
+[目的]
+- 手元のサブセットに対してeffective_filesを再生成
+- 全画像を評価対象にする
+- 正確なRR/LPR計算を可能にする
+```
+
+### 3. 現状の問題
+
+| Dataset | effective_files | 手元データ | 処理数 | 未評価 |
+|---------|----------------|-----------|--------|--------|
+| INRIA 1p | 234 | 30 | 24 | 6 |
+| VOC 1p | 3612 | 29 | 26 | 3 |
+| VOC mo | 27 | 29 | 27 | 2 |
+| CIFAR 1p | 14 | 30 | 14 | **16** |
+| ImageNet 1p | 34112 | 30 | ? | ? |
+
+### 4. サブタスク一覧
+
+| Sub-ID | タスク | データセット | 攻撃 | 状態 |
+|--------|--------|-------------|------|------|
+| EG-01 | effective再生成 | CIFAR | 1p | todo |
+| EG-02 | effective再生成 | CIFAR | 2p | todo |
+| EG-03 | effective再生成 | CIFAR | 4p | todo |
+| EG-04 | effective再生成 | CIFAR | trig | todo |
+| EG-05 | effective再生成 | ImageNet | 1p | todo |
+| EG-06 | effective再生成 | ImageNet | 2p | todo |
+| EG-07 | effective再生成 | ImageNet | 4p | todo |
+| EG-08 | effective再生成 | ImageNet | trig | todo |
+| EG-09 | effective再生成 | INRIA | 1p | todo |
+| EG-10 | effective再生成 | INRIA | 2p | todo |
+| EG-11 | effective再生成 | INRIA | trig | todo |
+| EG-12 | effective再生成 | VOC | 1p | todo |
+| EG-13 | effective再生成 | VOC | 2p | todo |
+| EG-14 | effective再生成 | VOC | trig | todo |
+| EG-15 | effective再生成 | VOC | mo | todo |
+
+### 5. 実行コマンド
+
+```bash
+# CIFAR
+docker compose run --rm saliuitl python saliuitl.py \
+  --dataset cifar --imgdir data/cifar/clean --patch_imgdir data/cifar/1p \
+  --det_net_path checkpoints/final_classification/2dcnn_raw_cifar_5_atk_det.pth \
+  --det_net 2dcnn_raw --geteff
+
+# ImageNet
+docker compose run --rm saliuitl python saliuitl.py \
+  --dataset imagenet --imgdir data/imagenet/clean --patch_imgdir data/imagenet/1p \
+  --det_net_path checkpoints/final_classification/2dcnn_raw_imagenet_5_atk_det.pth \
+  --det_net 2dcnn_raw --geteff
+
+# INRIA
+docker compose run --rm saliuitl python saliuitl.py \
+  --dataset inria --imgdir data/inria/clean --patch_imgdir data/inria/1p \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth \
+  --det_net 2dcnn_raw --geteff
+
+# VOC
+docker compose run --rm saliuitl python saliuitl.py \
+  --dataset voc --imgdir data/voc/clean --patch_imgdir data/voc/1p \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+  --det_net 2dcnn_raw --geteff
+```
+
+### 6. 成功条件（Acceptance Criteria）
+
+```text
+- [AC-1] 全15パターンでeffective_filesを再生成
+- [AC-2] 再生成後: effective + uneffective = 手元データ数
+- [AC-3] 旧effective_filesをバックアップ
+- [AC-4] 再生成後のRR/LPRを再計算
+```
+
+### 7. 注意事項
+
+```text
+- --geteff は復元処理を行わず、攻撃成功/失敗のみを判定
+- 判定基準:
+  - 物体検出: IoU(clean_pred, attacked_pred) < 0.5 → effective
+  - 画像分類: clean_pred ≠ attacked_pred → effective
+- 旧ファイルは effective_1p.npy.bak 等にリネームして保存
+```
+
+### 8. 履歴
+
+```text
+- 2026-02-05: タスク作成（effective_filesの不整合発見による）
+```
+
+---
+
+# TASK ENTRIES: AD汎化性能検証
+
+---
+
+## TASK-20260205-ADGEN: Attack Detectorの汎化性能検証
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260205-ADGEN
+  title: "Attack Detectorの汎化性能検証"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+    - Research-Critic
+  status: todo
+  priority: medium
+  created: 2026-02-05
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- ADはデータセット固有・攻撃パターン固有で学習されている
+- 未知のデータセット・攻撃パターンへの汎化性能は未検証
+- INRIA trigの検出率54.5%が低い理由として、ADの学習データに
+  三角形パッチが含まれていない可能性がある
+
+[問題点]
+- 実運用では未知の攻撃に遭遇する可能性が高い
+- データセットごとにADを再学習するコストが高い
+- 論文の「汎用性」の主張に対する懸念
+
+[目的]
+- クロスデータセット・クロス攻撃評価でADの汎化性能を定量化
+- Saliuitlの適用範囲・限界を明確化
+```
+
+### 3. サブタスク一覧
+
+| Sub-ID | タスク | 内容 | 状態 |
+|--------|--------|------|------|
+| AG-01 | クロスデータセット評価 | INRIA用ADでVOCを評価 | todo |
+| AG-02 | クロスデータセット評価 | VOC用ADでINRIAを評価 | todo |
+| AG-03 | クロスデータセット評価 | CIFAR用ADでImageNetを評価 | todo |
+| AG-04 | クロス攻撃評価 | 1p攻撃用ADでtrig攻撃を評価 | todo |
+| AG-05 | 結果分析 | 汎化性能の定量化・考察 | todo |
+
+### 4. 実行コマンド例
+
+```bash
+# クロスデータセット: INRIA用ADでVOCを評価
+docker compose run --rm saliuitl python saliuitl.py \
+  --dataset voc \
+  --imgdir data/voc/clean \
+  --patch_imgdir data/voc/1p \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_inria_5_atk_det.pth \
+  --det_net 2dcnn_raw \
+  --ensemble_step 5
+
+# クロス攻撃: 通常の1p用ADでtrig攻撃を評価（既存実験で実施済み）
+```
+
+### 5. 成功条件（Acceptance Criteria）
+
+```text
+- [AC-1] クロスデータセット評価で検出率・RRを計測
+- [AC-2] 同一データセット評価との比較表作成
+- [AC-3] 汎化性能の低下度合いを定量化
+- [AC-4] 考察と論文への示唆をまとめる
+```
+
+### 6. 関連研究との比較観点
+
+| 手法 | 汎化アプローチ | Saliuitlとの違い |
+|------|--------------|-----------------|
+| NutNet | クリーン画像のみで学習（OOD検出） | 攻撃パターン非依存 |
+| DIFFender | Diffusionモデルで再生成 | 学習不要 |
+| PATCHOUT | セマンティック一貫性で検出 | 学習不要 |
+
+### 7. 履歴
+
+```text
+- 2026-02-05: タスク作成（AD汎化性能の懸念発見による）
+```
+
+---
+
+# TASK ENTRIES: 関連研究調査
+
+---
+
+## TASK-20260205-RELATED: 敵対的パッチ防御の関連研究調査
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260205-RELATED
+  title: "敵対的パッチ防御の関連研究調査"
+  owner: Lead
+  assigned_agents:
+    - Paper-Searcher
+    - Research-Critic
+  status: todo
+  priority: low
+  created: 2026-02-05
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- Saliuitlはデータセット固有のADを必要とし、汎化性能に課題がある
+- 2024-2025年に汎化性能を改善した新しい手法が複数提案されている
+- Saliuitlの位置づけ・限界を明確化するために関連研究の調査が必要
+
+[目的]
+- 最新の敵対的パッチ防御手法を調査
+- Saliuitlとの比較表を作成
+- 研究の方向性・改善案を検討
+```
+
+### 3. 調査対象論文
+
+| 論文 | 会議/年 | アプローチ | URL |
+|------|--------|-----------|-----|
+| NutNet | 2024 | OOD検出（クリーンのみ学習） | [arXiv](https://arxiv.org/html/2406.10285v1) |
+| DIFFender | 2025 | Diffusionモデル | [PubMed](https://pubmed.ncbi.nlm.nih.gov/40768456/) |
+| Unified Detector | CVPR 2025 | 大規模学習 | [CVF](https://openaccess.thecvf.com/content/CVPR2025/papers/Kumar_A_Unified_Resilient_and_Explainable_Adversarial_Patch_Detector_CVPR_2025_paper.pdf) |
+| PATCHOUT | 2025 | セマンティック一貫性 | [Springer](https://link.springer.com/article/10.1007/s11063-025-11775-5) |
+| Revisiting Defenses | ICCV 2025 | ベンチマーク | [CVF](https://openaccess.thecvf.com/content/ICCV2025/supplemental/Zheng_Revisiting_Adversarial_Patch_ICCV_2025_supplemental.pdf) |
+
+### 4. 比較観点
+
+```text
+- 汎化性能（未知データセット、未知攻撃への対応）
+- 計算コスト（推論時間、学習コスト）
+- 検出精度（検出率、False Positive率）
+- 復元精度（RR、画像品質）
+- 実用性（学習データの必要性、デプロイの容易さ）
+```
+
+### 5. 成功条件（Acceptance Criteria）
+
+```text
+- [AC-1] 5本以上の関連論文を調査
+- [AC-2] Saliuitlとの比較表を作成
+- [AC-3] 各手法の長所・短所をまとめる
+- [AC-4] Saliuitlの改善方向性を提案
+```
+
+### 6. 出力
+
+- `docs/notes/related_work_survey.md`: 関連研究サーベイ
+- `docs/notes/method_comparison.md`: 手法比較表
+
+### 7. 参考リソース
+
+- [inspire-group/adv-patch-paper-list](https://github.com/inspire-group/adv-patch-paper-list)
+
+### 8. 履歴
+
+```text
+- 2026-02-05: タスク作成（AD汎化性能調査の派生として）
+```
+
+---
+
+# TASK ENTRIES: データセット拡張
+
+---
+
+## TASK-20260205-DATAUG: データセット拡張による評価・学習データの強化
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260205-DATAUG
+  title: "データセット拡張による評価・学習データの強化"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+  status: todo
+  priority: low
+  created: 2026-02-05
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- 手元のデータはサブセット（約30枚/データセット）
+- ADの汎化性能が低い（データセット固有・攻撃パターン固有）
+- 関連研究では大規模データセット（APDE: 94,000枚）が公開されている
+
+[目的]
+- データ拡張により評価データを増やす
+- 多様なパッチパターンでADの汎化性能を向上
+- 公開データセットを活用して評価の信頼性を向上
+```
+
+### 3. データ拡張方法
+
+#### 方法1: パッチ変換による拡張
+
+```python
+# 1枚の攻撃画像から複数の変形画像を生成
+transformations:
+  - rotation: [-22.5°, +22.5°] (5段階)
+  - translation: [-68px, +68px] (5段階)
+  - scale: [0.8x, 1.2x] (3段階)
+  - brightness: [-20%, +20%] (3段階)
+
+# 拡張効果: 30枚 → 30 × 75 = 2,250枚
+```
+
+#### 方法2: 公開データセットの活用
+
+| データセット | サイズ | 用途 | URL |
+|-------------|--------|------|-----|
+| ImageNet-Patch | 50,000枚 | CIFAR/ImageNet評価 | https://github.com/pralab/ImageNet-Patch |
+| APDE | 94,000枚 | 物体検出評価 | https://github.com/Gandolfczjh/APDE（公開待ち） |
+| MS COCO | 2,693枚 | VOC代替 | 公開済み |
+
+#### 方法3: パッチ自動生成
+
+- DiffPatch: Diffusionモデルによるパッチ生成
+- PAD: 動的敵対的学習でパッチを生成
+
+### 4. サブタスク一覧
+
+| Sub-ID | タスク | 内容 | 状態 |
+|--------|--------|------|------|
+| DA-01 | ImageNet-Patchダウンロード | 公開リポジトリから取得 | todo |
+| DA-02 | パッチ変換スクリプト作成 | 回転・移動・スケール適用 | todo |
+| DA-03 | 手元データ拡張 | 30枚→300枚以上に拡張 | todo |
+| DA-04 | 拡張データでeffective_files再生成 | --geteffで再生成 | todo |
+| DA-05 | 拡張データでAD再学習（オプション） | 汎化性能向上 | todo |
+| DA-06 | APDEデータセット取得 | 公開後に取得 | blocked |
+
+### 5. 実装例
+
+```python
+# scripts/augment_patch_data.py
+import torchvision.transforms as T
+import random
+from PIL import Image
+
+def augment_attacked_image(image_path, output_dir, n_augmentations=10):
+    img = Image.open(image_path)
+
+    for i in range(n_augmentations):
+        # ランダム変換
+        angle = random.uniform(-22.5, 22.5)
+        tx = random.randint(-20, 20)
+        ty = random.randint(-20, 20)
+        scale = random.uniform(0.9, 1.1)
+
+        # 変換適用
+        transform = T.Compose([
+            T.RandomAffine(degrees=angle, translate=(tx/416, ty/416), scale=(scale, scale)),
+        ])
+
+        augmented = transform(img)
+        augmented.save(f"{output_dir}/{image_path.stem}_aug{i}.png")
+```
+
+### 6. 成功条件（Acceptance Criteria）
+
+```text
+- [AC-1] ImageNet-Patchをダウンロードし、評価に使用可能な状態にする
+- [AC-2] パッチ変換スクリプトを作成し、手元データを10倍以上に拡張
+- [AC-3] 拡張データに対してeffective_filesを再生成
+- [AC-4] 拡張データでの評価結果を記録
+```
+
+### 7. 参考文献
+
+- [ImageNet-Patch](https://github.com/pralab/ImageNet-Patch)
+- [APDE Dataset (ICCV 2025)](https://github.com/Gandolfczjh/APDE)
+- [PAD: Patch-Agnostic Defense (CVPR 2024)](https://openaccess.thecvf.com/content/CVPR2024/papers/Jing_PAD_Patch-Agnostic_Defense_against_Adversarial_Patch_Attacks_CVPR_2024_paper.pdf)
+- [DiffPatch (2024)](https://arxiv.org/html/2412.01440v1)
+
+### 8. 履歴
+
+```text
+- 2026-02-05: タスク作成（データセット拡張方法の調査結果を反映）
 ```
