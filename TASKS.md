@@ -404,43 +404,49 @@ docker compose run --rm saliuitl python saliuitl.py \
 - 2026-02-04: マスクサイズ上限（5.5%）説明図作成、スライド更新
 - 2026-02-05: Oracle Inpainting Test全データセット実施完了
 - 2026-02-05: Oracle Test詳細考察完了（docs/notes/oracle_test_analysis.md）
+- 2026-02-06: スライド構成改善（12枚、可視化・Oracle Test強調版）
+- 2026-02-06: スライド草案v2作成、日本語図表6点作成
 ```
 
 ---
 
-## 11. 次のアクション（2026-02-05更新）
+## 11. 次のアクション（2026-02-06更新）
+
+### 完了済み（2026-02-06）
+- [x] **スライド構成の改善** ✅
+  - 13枚構成 → 12枚構成（可視化・Oracle Test強調版）
+  - 手法説明を1枚に圧縮
+- [x] **スライド草案v2作成** ✅
+  - ファイル: `docs/slides_draft_v2.md`
+- [x] **スライド用図表作成（日本語版）** ✅
+  - `oracle_test_comparison.png`: 全15パターン詳細比較
+  - `oracle_test_summary.png`: タスク別平均比較
+  - `bottleneck_hierarchy.png`: ボトルネック階層図
+  - `bottleneck_table.png`: 改善余地の表
+  - `success_definition.png`: 「成功」定義と乖離
+  - `oracle_definition.png`: Oracle Inpaintingの定義
+  - スクリプト: `scripts/create_slide_figures_v2_ja.py`
 
 ### 完了済み（2026-02-05）
 - [x] TASK-20260205-ORACLE: Oracle Inpainting Test全データセット ✅
-  - 物体検出（INRIA/VOC）: 7シナリオ完了（INRIA moはデータなし）
-  - 画像分類（CIFAR/ImageNet）: 8シナリオ完了
-  - **主要発見**: 物体検出ではOracle効果が大きい（+22.8%）、画像分類では限定的（+0.8%）
-- [x] **Oracle Test結果の詳細考察** ✅
-  - 考察ファイル: `docs/notes/oracle_test_analysis.md`（310行）
-  - ボトルネック階層構造を特定: 検出率 > マスク精度 > インペインティング品質
-  - タスク別改善戦略を提案
+- [x] Oracle Test結果の詳細考察 ✅
 
 ### 完了済み（2026-02-04）
 - [x] マスクサイズ上限（5.5%）説明図の作成 ✅
 - [x] スライド用表のLaTeX画像化（6点生成） ✅
-- [x] S-06: 失敗分析サマリー図作成 ✅
-- [x] CIFAR/ImageNet用ADチェックポイント確認 ✅
 
-### 完了済み（2026-02-03）
-- [x] TASK-20260203-PERF: 計算時間比較実験 ✅
-- [x] TASK-20260203-SLIDES: スライド用図表生成 ✅
-- [x] TASK-20260203-DRAFT: スライド草案作成 ✅
+### 優先度: 高（発表準備）
+- [ ] **スライドPPTXへの変換**（発表日: 2026-02-08目標）
+- [ ] **復元画像サンプルの選定**（スライド7用）
+  - `experiments/exp_20260202_viz_improved/figures/` から選定
+- [ ] **発表練習**
 
-### 優先度: 高
+### 優先度: 高（評価精度改善）
 - [ ] **effective_filesの再生成**（TASK-20260205-EFFGEN）
   - 現状: フルデータセット用のeffective_filesをサブセット（30枚）に適用
   - 問題: 30枚中14枚しか評価対象にならない（CIFAR 1p）
   - 対策: 手元のサブセットに対してeffective_filesを再生成
   - コマンド: `--geteff` オプションで各データセット・攻撃パターンを実行
-- [ ] **スライドPPTX最終確認**（ユーザー側作業）
-- [ ] **スライドへのOracle考察反映**
-  - スライド用要約文を作成済み
-  - ボトルネック階層図の追加を検討
 
 ### 優先度: 中
 - [ ] Table 2 (nmAP) 再現実験の実行（全8シナリオ）
