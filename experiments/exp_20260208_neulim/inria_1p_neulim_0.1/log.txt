@@ -1,0 +1,2 @@
+Unsuccesful Attacks:0.75
+Detected Attacks:0.9583333333333334
