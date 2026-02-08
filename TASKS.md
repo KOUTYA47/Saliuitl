@@ -406,11 +406,27 @@ docker compose run --rm saliuitl python saliuitl.py \
 - 2026-02-05: Oracle Test詳細考察完了（docs/notes/oracle_test_analysis.md）
 - 2026-02-06: スライド構成改善（12枚、可視化・Oracle Test強調版）
 - 2026-02-06: スライド草案v2作成、日本語図表6点作成
+- 2026-02-08: 復元マスク面積の考察、可視化/評価乖離の発見・修正実装
 ```
 
 ---
 
-## 11. 次のアクション（2026-02-06更新）
+## 11. 次のアクション（2026-02-08更新）
+
+### 完了済み（2026-02-08）
+- [x] **復元マスク面積の考察** ✅
+  - ドキュメント: `docs/notes/recovery_mask_analysis.md`
+  - 可視化の `my_mask` 面積は 4.3-10.9%（5枚中4枚が5.5%超）
+  - over-masking メカニズム解明（bfm_old重み付け、低beta全面マスク）
+  - 3層ボトルネック構造の特定（検出率 > マスク精度 > IP品質）
+- [x] **可視化/評価乖離の発見** ✅
+  - 可視化: 最終beta（最悪ケース）の画像を表示
+  - 評価: 全betaの検出ボックスを蓄積・NMS統合
+  - 両者が根本的に異なることを発見
+- [x] **可視化修正の実装** ✅
+  - `saliuitl.py` に `best_viz_img`（最多検出betaの画像）トラッキングを追加
+  - "Recovered" パネルを最多検出beta画像に変更
+  - per-beta統計表示を追加
 
 ### 完了済み（2026-02-06）
 - [x] **スライド構成の改善** ✅
@@ -440,6 +456,22 @@ docker compose run --rm saliuitl python saliuitl.py \
 - [ ] **復元画像サンプルの選定**（スライド7用）
   - `experiments/exp_20260202_viz_improved/figures/` から選定
 - [ ] **発表練習**
+
+### 完了済み（2026-02-08 実験実行）
+- [x] **可視化修正のテスト実行**（TASK-20260208-VIZTEST） ✅
+  - VOC 1p: RR=0.5385（回帰テスト合格）、5枚の可視化生成
+  - best betaマスク面積: 0.3-2.6%（累積の約1/6）
+- [x] **per-beta統計の定量分析**（TASK-20260208-BETASTATS） ✅
+  - VOC 26画像、INRIA 23画像でBETA_STATS収集
+  - **核心的発見**: 全画像の63.3%でbest beta < 0.40
+  - beta範囲制限は壊滅的（best betaを失う画像が過半数）
+- [x] **beta範囲制限の効果検証**（TASK-20260208-BETARANGE） ✅ → **実行不要と判断**
+  - BETASTATSの結果から、低betaカットは有害と結論
+  - neulim=0.1のVOC RR -11.5%低下がこれを裏付け
+- [x] **neulim閾値チューニング**（TASK-20260208-NEULIM） ✅
+  - neulim=0.1: VOC -11.5%, INRIA -4.2%
+  - neulim=0.2/0.3: VOC -3.8%, INRIA 0%
+  - **結論**: デフォルト(0.5)が最適、低betaは検出回復に不可欠
 
 ### 優先度: 高（評価精度改善）
 - [ ] **effective_filesの再生成**（TASK-20260205-EFFGEN）
@@ -1603,4 +1635,263 @@ def augment_attacked_image(image_path, output_dir, n_augmentations=10):
 
 ```text
 - 2026-02-05: タスク作成（データセット拡張方法の調査結果を反映）
+```
+
+---
+
+# TASK ENTRIES: 復元マスク改善実験
+
+---
+
+## TASK-20260208-VIZTEST: 可視化修正のテスト実行
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260208-VIZTEST
+  title: "可視化修正（best_viz_img）のテスト実行"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+  status: todo
+  priority: high
+  created: 2026-02-08
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- 可視化が最終beta（最悪ケース）を表示していた問題を修正
+- best_viz_img（最多検出betaの画像）を表示するよう saliuitl.py を変更済み
+- 修正が正しく動作するか実行確認が必要
+
+[目的]
+- 修正後の可視化が正しく生成されることを確認
+- best_viz_img, best_viz_mask, per_beta_stats が期待通りに表示されるか検証
+- 既存の評価ロジック（RR, LPR）に影響がないことを確認
+```
+
+### 3. 実行コマンド
+
+```bash
+docker compose run --rm saliuitl python saliuitl.py \
+  --inpaint biharmonic \
+  --imgdir data/voc/clean \
+  --patch_imgdir data/voc/1p \
+  --dataset voc \
+  --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+  --det_net 2dcnn_raw \
+  --ensemble_step 5 \
+  --inpainting_step 5 \
+  --effective_files data/voc/1p/effective_1p.npy \
+  --n_patches 1 \
+  --save_images \
+  --save_images_limit 5 \
+  --save_images_dir experiments/exp_20260208_vizfix/figures
+```
+
+### 4. 検証項目
+
+```text
+- [V-1] "Recovered" パネルに "[beta=X.XX]" が表示される
+- [V-2] "Best Beta Mask" パネルが表示される（累積マスクではなく単体beta）
+- [V-3] "Accum. Mask" パネルにper-beta統計テキストが描画される
+- [V-4] RR/LPRが exp_20260201_reproduction と同値（回帰テスト）
+- [V-5] best_viz_img=Noneのフォールバック（全betaで検出0のケース）
+```
+
+### 5. 成功条件
+
+```text
+- [AC-1] 5枚の可視化画像がエラーなく生成される
+- [AC-2] V-1〜V-3が目視確認できる
+- [AC-3] VOC 1p のRR = 0.5385 と一致
+```
+
+---
+
+## TASK-20260208-BETASTATS: per-beta統計の定量分析
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260208-BETASTATS
+  title: "per-beta統計の定量分析"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+    - Result-Analyst
+  status: todo
+  priority: high
+  created: 2026-02-08
+```
+
+### 2. 背景・目的（Why）
+
+```text
+[背景]
+- recovery_mask_analysis.md で「高betaが評価の主な貢献者」と仮説を立てた
+- per_beta_stats トラッキングを実装済みだが、データ収集は未実施
+- どのbeta帯が検出回復に最も寄与するか定量的に不明
+
+[目的]
+- 全画像で per_beta_stats を収集
+- 各betaのマスク面積・検出ボックス数の分布を明らかにする
+- 低betaの寄与が実際にあるか検証（ない場合、beta範囲制限の根拠になる）
+```
+
+### 3. 必要な実装
+
+per_beta_stats をログ出力またはCSV保存する機能を追加:
+
+```python
+# saliuitl.py のper-betaループ後に追加
+if per_beta_stats:
+    print(f"[BETA_STATS] {nameee}: " +
+          ", ".join([f"b={b:.2f}:{a:.1f}%/{n}box" for b,a,n in per_beta_stats]))
+```
+
+### 4. 分析計画
+
+| 分析 | 目的 |
+|------|------|
+| beta別マスク面積ヒストグラム | 各betaでのマスク面積分布 |
+| beta別検出ボックス数 | どのbeta帯が検出に最も寄与するか |
+| beta別検出精度（IoU≥0.5率） | 高betaの検出品質 vs 低betaの検出品質 |
+| beta-cutoff感度分析 | beta_min を 0.05→0.30 に変えた場合のRR変化 |
+
+### 5. 成功条件
+
+```text
+- [AC-1] VOC 1p, INRIA 1p の全画像で per_beta_stats を収集
+- [AC-2] beta帯ごとの検出寄与度を定量化
+- [AC-3] 低beta（<0.30）の削除がRRに影響するか結論を出す
+```
+
+---
+
+## TASK-20260208-BETARANGE: beta範囲制限の効果検証
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260208-BETARANGE
+  title: "beta範囲制限によるover-masking抑制"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+  status: todo
+  priority: high
+  created: 2026-02-08
+  depends_on: TASK-20260208-BETASTATS
+```
+
+### 2. 背景・目的
+
+```text
+[背景]
+- recovery_mask_analysis.md Section 2.3: 低beta（<0.30）ではFM全域の70%+が活性化
+- DBSCANが巨大クラスタを形成し、画像のほぼ全面がインペインティング対象になる
+- biharmonicは5%超のマスクで急激に劣化（Section 3.3）
+
+[目的]
+- revranの下限を制限（0.05→0.30等）してover-maskingを抑制
+- RRへの影響を計測（低betaが不要なら削除でRR維持＋品質改善）
+```
+
+### 3. 実験設計
+
+| 条件 | revran範囲 | beta数 |
+|------|-----------|--------|
+| baseline | [0.95..0.05] step=5 | 19 |
+| conservative | [0.95..0.30] step=5 | 14 |
+| moderate | [0.95..0.50] step=5 | 10 |
+| aggressive | [0.95..0.70] step=5 | 6 |
+
+### 4. 実装方法
+
+`saliuitl.py` の `revran` 生成を `--beta_min` オプションで制御:
+
+```python
+# 案: 引数追加
+parser.add_argument('--beta_min', type=float, default=0.0)
+# revran生成時にフィルタ
+revran = [b for b in revran if b >= args.beta_min]
+```
+
+### 5. 成功条件
+
+```text
+- [AC-1] 4条件でVOC 1p, INRIA 1pを評価
+- [AC-2] 各条件のRR, 平均マスク面積, 計算時間を記録
+- [AC-3] RRを維持しつつover-maskingを減らせる最適beta_minを特定
+```
+
+---
+
+## TASK-20260208-NEULIM: neulim閾値チューニング
+
+### 1. タスク基本情報
+
+```yaml
+task:
+  id: TASK-20260208-NEULIM
+  title: "neulim停止条件閾値の最適化"
+  owner: Lead
+  assigned_agents:
+    - Experiment-Runner
+  status: todo
+  priority: high
+  created: 2026-02-08
+```
+
+### 2. 背景・目的
+
+```text
+[背景]
+- recovery_mask_analysis.md Section 2.4:
+  neulim=0.5 → FMセル22%まで通過 → 画像面積の約21%がマスク対象
+- `continue`（breakではない）のためスキップ後も次betaが処理される
+- より低い閾値でマスク面積を制限すればover-masking抑制可能
+
+[目的]
+- neulim = 0.1, 0.2, 0.3, 0.5（デフォルト）での比較
+- RRとマスク面積のトレードオフを定量化
+```
+
+### 3. 実験設計
+
+| 条件 | neulim | 通過FMセル上限 | 推定マスク面積上限 |
+|------|--------|-------------|-----------------|
+| tight | 0.1 | ~4.4% | ~4% |
+| moderate | 0.2 | ~8.9% | ~9% |
+| default_low | 0.3 | ~13.3% | ~13% |
+| default | 0.5 | ~22.2% | ~21% |
+
+### 4. 実行コマンド
+
+```bash
+for neulim in 0.1 0.2 0.3 0.5; do
+  docker compose run --rm saliuitl python saliuitl.py \
+    --dataset voc --imgdir data/voc/clean --patch_imgdir data/voc/1p \
+    --det_net_path checkpoints/final_detection/2dcnn_raw_VOC_5_atk_det.pth \
+    --det_net 2dcnn_raw --ensemble_step 5 --inpainting_step 5 \
+    --effective_files data/voc/1p/effective_1p.npy --n_patches 1 \
+    --neulim $neulim \
+    --save_images --save_images_limit 5 \
+    --save_images_dir experiments/exp_20260208_neulim/neulim_${neulim}/figures
+done
+```
+
+### 5. 成功条件
+
+```text
+- [AC-1] 4条件でVOC 1p, INRIA 1pを評価
+- [AC-2] 各条件のRR, 平均マスク面積を記録
+- [AC-3] 可視化でマスク面積の変化を確認
+- [AC-4] 最適neulim値の推奨を出す
 ```
