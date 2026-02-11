@@ -598,3 +598,113 @@ neulim停止条件の閾値を変えた場合のRR変化を測定
 - `experiments/exp_20260208_neulim/inria_1p_neulim_{0.1,0.2,0.3}/log.txt`
 
 ---
+
+## R-2026-02-09: 検知ステージ4属性抽出・可視化 (DETFEAT)
+
+### 実験ID
+`exp_20260209_detection_features`
+
+### 目的
+1. 検知ステージの攻撃検知メカニズムをコードレベルで正確に特定
+2. 論文中の4属性グラフ（beta vs 属性値、clean/attacked比較）を再現
+3. ADの判定根拠を可視化
+
+### 調査で判明した事実
+
+#### CLAUDE.md記述との相違
+
+| 項目 | CLAUDE.md記載 | コード実装（事実） |
+|------|-------------|------------------|
+| 二値化閾値 | mean + beta × std | `max(FM) × beta`（`saliuitl.py:205`） |
+| FM解像度 | 26×26 | **208×208**（第1 maxpool出力、`darknet.py:130-135`） |
+| 処理単位 | チャネルごと | チャネル合計後の1枚の空間マップ（`saliuitl.py:304`） |
+| 重要度 | 値ベース比率 | `binarized_fm.sum()` = 活性ピクセル数（`saliuitl.py:246`） |
+| ADモデル | — | **1D-CNN (Conv1d)**（`nets/attack_detector.py:43`） |
+| AD出力 | — | sigmoid適用済み [0,1]（`nets/attack_detector.py:73`） |
+
+#### 4属性の正確な定義
+
+| # | 属性 | 計算方法 | コード位置 |
+|---|------|---------|-----------|
+| 1 | クラスタ数 | DBSCAN unique labels数 | `saliuitl.py:240` |
+| 2 | 平均クラスタ内距離 | 各クラスタ内1000点サンプル→ペアワイズ距離の下三角平均→クラスタ間平均 | `saliuitl.py:224-230` |
+| 3 | 距離の標準偏差 | 上記クラスタ内平均距離のクラスタ間std | `saliuitl.py:231` |
+| 4 | 活性ニューロン数 | `binarized_fm.sum()` | `saliuitl.py:246` |
+
+### パラメータ
+- dataset: VOC, attack: 1-patch
+- ensemble_step: 5 (20 beta values)
+- dbscan_eps: 1.0, dbscan_min_pts: 4
+- nn_det_threshold: 0.5
+- 画像数: 26
+
+### 結果
+
+#### AD判定スコアの分離
+
+| 対象 | 平均 | 最小 | 最大 |
+|------|------|------|------|
+| Attacked | 0.9999 | 0.9987 | 1.0000 |
+| Clean | 0.0245 | 0.0000 | 0.3530 |
+
+→ **VOC 1-patchでは完全分離**（検知率100%と一致）
+
+#### 属性別の乖離パターン
+
+- **全4属性でβ=0.05〜0.30に乖離が集中**
+- 高beta（≥0.5）ではclean/attackedの差がほぼゼロ
+- **n_clusters**: 相対的判別力最強（パッチが独立クラスタを形成）
+- **importance**: 絶対差最大（β=0.05でAttacked≈40,000 vs Clean≈15,000）
+
+### 生成ファイル
+- `experiments/exp_20260209_detection_features/detection_features.csv`（26画像×20beta×2type = 1,040レコード）
+- `experiments/exp_20260209_detection_features/figures/mean_raw_attributes.png`（26画像平均、生値）
+- `experiments/exp_20260209_detection_features/figures/mean_normalized_ad_input.png`（L∞正規化後）
+- `experiments/exp_20260209_detection_features/figures/single_*.png`（3枚、個別画像詳細）
+- `scripts/extract_detection_features.py`（抽出+可視化スクリプト）
+- `docs/notes/detection_stage_investigation.md`（検知ステージ調査ドキュメント）
+
+---
+
+## R-2026-02-10: Table 1再現結果の考察分析 + 可視化
+
+### 実験ID
+`exp_20260201_reproduction`（追加分析）
+
+### 目的
+15シナリオの論文値との乖離原因を体系的に整理し、スライド・グラフを作成
+
+### 分析結果
+
+#### 乖離パターンの分類（全15シナリオ）
+
+| Dataset | Attack | 評価n | 1枚=± | 検出率 | 論文差 | 主因 |
+|---------|--------|:-----:|:-----:|:------:|:------:|:-----|
+| VOC | 1p | 26 | 3.8% | 1.00 | **-0.2%** | — |
+| VOC | 2p | 19 | 5.3% | 1.00 | **-1.1%** | — |
+| VOC | trig | 20 | 5.0% | 0.80 | -27.4% | パッチ形状 |
+| VOC | mo | 27 | 3.7% | 1.00 | -13.6% | 境界配置 |
+| INRIA | 1p | 24 | 4.2% | 0.96 | +20.1% | eff不整合 |
+| INRIA | 2p | 7 | 14.3% | 1.00 | +47.0% | eff不整合+n不足 |
+| INRIA | trig | 11 | 9.1% | 0.55 | -11.0% | パッチ形状 |
+| CIFAR | 1p | 14 | 7.1% | 0.93 | **-4.5%** | — |
+| CIFAR | 2p | 15 | 6.7% | 0.87 | -17.9% | 検出率+n |
+| CIFAR | 4p | 15 | 6.7% | 1.00 | **-4.1%** | — |
+| CIFAR | trig | 15 | 6.7% | 1.00 | **+1.0%** | — |
+| ImageNet | 1p | 15 | 6.7% | 1.00 | **-2.0%** | — |
+| ImageNet | 2p | 15 | 6.7% | 0.87 | -18.7% | checkpoint |
+| ImageNet | 4p | 15 | 6.7% | 0.93 | -37.7% | checkpoint+n増 |
+| ImageNet | trig | 15 | 6.7% | 0.67 | -10.7% | checkpoint+形状 |
+
+#### 主要知見
+- **±5%以内で一致**: 6/15シナリオ（VOC 1p/2p, CIFAR 1p/4p/trig, ImageNet 1p）
+- **INRIA上昇の主因**: effective_files不整合（重み差ではない。検出率95-100%で正常）
+- **trig低下**: 非矩形パッチ形状による二重劣化（検出失敗+マスク形状不一致）
+- **mo低下**: 境界配置によるIP品質低下（検出率100%、復元段階のみ劣化）
+- **ImageNet低下**: checkpoint未提供（torchvision pretrained使用）+ パッチ数増加で拡大
+
+### 生成ファイル
+- `docs/slides_table1_reproduction.md`（結果+考察スライド、最終2枚構成）
+- `experiments/exp_20260201_reproduction/results/rr_diff_chart.png`（RR Diff水平バーチャート）
+
+---

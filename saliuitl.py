@@ -625,6 +625,7 @@ elif args.dataset in ['cifar', 'imagenet']:
 
             output_clean, feature_map = model(data)
             output_clean, feature_map = output_clean.detach().cpu().numpy()[0], feature_map.detach().cpu().numpy()[0]
+            fm_np_viz = feature_map.copy()  # Save FM for visualization before overwrite
             """
             DETECTION STAGE
             """
@@ -674,6 +675,11 @@ elif args.dataset in ['cifar', 'imagenet']:
                 pred_list = np.argsort(global_feature,kind='stable')
                 og_clean_pred = pred_list[-1]
                 all_feats= np.zeros(global_feature.shape).reshape(1,-1)
+                # Visualization tracking
+                per_beta_stats = []
+                best_viz_mask = None
+                best_viz_img = None
+                best_viz_beta = None
                 if not args.bypass_det:
                     revran_det=[0.0+x*0.01 for x in range(0,100,args.ensemble_step)]
                 else:
@@ -729,6 +735,11 @@ elif args.dataset in ['cifar', 'imagenet']:
                     for x,y in zip(p_int[0], p_int[1]):
                         imgneer[max(2*x-3,0):min(2*x+3,imgneer.shape[0])+1, max(2*y-3,0):min(2*y+3,imgneer.shape[1])+1]=1.0
 
+                    # Accumulate mask for visualization
+                    my_mask = np.maximum(my_mask, imgneer * (1.0 - beta_big))
+                    mask_area_pct = np.sum(imgneer > 0) / imgneer.size * 100
+                    per_beta_stats.append((beta_big, mask_area_pct))
+
                     p=np.where(imgneer>0.0)
                     in_img=data.clone()
                     bfm_old=bfm
@@ -757,6 +768,10 @@ elif args.dataset in ['cifar', 'imagenet']:
                     global_feature = np.mean(output_clean2, axis=(0,1))
                     pred_list = np.argsort(global_feature,kind='stable')
                     clean_pred = pred_list[-1]
+                    # Track for visualization (always update; last update = recovery beta if corrected)
+                    best_viz_img = in_img.detach().clone() if torch.is_tensor(in_img) else torch.from_numpy(in_img).cuda().unsqueeze(0)
+                    best_viz_mask = imgneer.copy()
+                    best_viz_beta = beta_big
                     #update condition AND stopping condition number 2 (skipped when measuring performance):
                     if clean_pred!=og_clean_pred and not args.performance:
                         corrected=True
@@ -774,6 +789,95 @@ elif args.dataset in ['cifar', 'imagenet']:
                     clean_corr = clean_corr + 1
                 else:
                     success_atk = success_atk + 1
+
+                # Save visualization images (classification)
+                if args.save_images and saved_images_count < args.save_images_limit:
+                    saved_images_count += 1
+                    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+                    img_size = data.shape[2]  # H dimension
+
+                    cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer',
+                                     'dog', 'frog', 'horse', 'ship', 'truck']
+                    def get_class_name(idx):
+                        if args.dataset == 'cifar':
+                            return cifar_classes[idx] if idx < len(cifar_classes) else str(idx)
+                        return f'class {idx}'
+
+                    # [0,0] Clean image + label
+                    clean_np = denorm(cheat.squeeze(0)).cpu().numpy().transpose(1, 2, 0)
+                    clean_np = np.clip(clean_np, 0, 1)
+                    axes[0, 0].imshow(clean_np)
+                    axes[0, 0].set_title(f'Clean: {get_class_name(label)}', fontsize=12)
+                    axes[0, 0].axis('off')
+
+                    # [0,1] Attacked image + label
+                    attacked_np = denorm(data.squeeze(0)).cpu().numpy().transpose(1, 2, 0)
+                    attacked_np = np.clip(attacked_np, 0, 1)
+                    axes[0, 1].imshow(attacked_np)
+                    atk_color = 'red' if og_clean_pred != label else 'black'
+                    axes[0, 1].set_title(f'Attacked: {get_class_name(og_clean_pred)}', fontsize=12, color=atk_color)
+                    axes[0, 1].axis('off')
+
+                    # [0,2] Recovered image + label + beta
+                    if best_viz_img is not None:
+                        rec_np = denorm(best_viz_img.squeeze(0)).cpu().numpy().transpose(1, 2, 0)
+                        rec_np = np.clip(rec_np, 0, 1)
+                        viz_beta_label = f' [beta={best_viz_beta:.2f}]'
+                    else:
+                        rec_np = attacked_np.copy()
+                        viz_beta_label = ' [no recovery]'
+                    result_text = 'Success' if clean_pred == label else 'Failed'
+                    rec_color = 'green' if clean_pred == label else 'red'
+                    axes[0, 2].imshow(rec_np)
+                    axes[0, 2].set_title(f'Recovered: {get_class_name(clean_pred)}{viz_beta_label} - {result_text}', fontsize=11, color=rec_color)
+                    axes[0, 2].axis('off')
+
+                    # [1,0] Feature map heatmap
+                    fm_viz = np.sum(fm_np_viz, axis=0)
+                    fm_viz = (fm_viz - fm_viz.min()) / (fm_viz.max() - fm_viz.min() + 1e-8)
+                    from scipy.ndimage import zoom
+                    scale_factor = img_size / fm_viz.shape[0]
+                    fm_upsampled = zoom(fm_viz, scale_factor, order=1)
+                    axes[1, 0].imshow(attacked_np)
+                    axes[1, 0].imshow(fm_upsampled, cmap='jet', alpha=0.5)
+                    axes[1, 0].set_title(f'Feature Map Heatmap ({fm_viz.shape[0]}x{fm_viz.shape[1]})', fontsize=12)
+                    axes[1, 0].axis('off')
+
+                    # [1,1] Recovery mask overlay
+                    if best_viz_mask is not None:
+                        bv_mask = best_viz_mask
+                        bv_label = f'Recovery Mask (beta={best_viz_beta:.2f}, {np.sum(bv_mask>0)/bv_mask.size*100:.1f}%)'
+                    else:
+                        bv_mask = my_mask
+                        bv_label = 'Mask (no recovery)'
+                    if bv_mask.max() > 0:
+                        mask_norm = bv_mask / bv_mask.max()
+                    else:
+                        mask_norm = bv_mask
+                    axes[1, 1].imshow(attacked_np)
+                    axes[1, 1].imshow(mask_norm, cmap='hot', alpha=0.6)
+                    axes[1, 1].set_title(bv_label, fontsize=10)
+                    axes[1, 1].axis('off')
+
+                    # [1,2] Accumulated mask
+                    axes[1, 2].imshow(my_mask, cmap='hot')
+                    inpaint_ratio = np.sum(my_mask > 0) / my_mask.size * 100
+                    stats_text = '\n'.join([f'b={b:.2f}: {a:.1f}%' for b, a in per_beta_stats[:8]])
+                    if len(per_beta_stats) > 8:
+                        stats_text += f'\n... +{len(per_beta_stats)-8} more'
+                    axes[1, 2].set_title(f'Accum. Mask ({inpaint_ratio:.1f}%)', fontsize=10)
+                    axes[1, 2].text(5, img_size - 5, stats_text, fontsize=7, color='white',
+                                    verticalalignment='bottom', family='monospace',
+                                    bbox=dict(boxstyle='round,pad=0.3', facecolor='black', alpha=0.7))
+                    axes[1, 2].axis('off')
+
+                    plt.suptitle(f'{args.dataset.upper()} {args.n_patches}p: {nameee}', fontsize=14, fontweight='bold')
+                    plt.tight_layout()
+                    save_path = os.path.join(args.save_images_dir, f'{args.dataset}_{args.n_patches}p_{nameee}.png')
+                    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+                    plt.close()
+                    print(f'Saved: {save_path}')
+
             else:
                 global_feature = np.mean(output_clean, axis=(0,1))
                 pred_list = np.argsort(global_feature,kind='stable')

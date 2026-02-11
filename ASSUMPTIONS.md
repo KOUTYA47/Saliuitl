@@ -324,9 +324,56 @@ Level 1: 検出率 (Detection Rate) ← 最重要ボトルネック
 
 ---
 
+## 検知ステージの実装詳細（2026-02-09 コード調査により確定）
+
+### 特徴マップ
+
+| データセット | 被害者モデル | FM取得レイヤー | FM解像度 | チャネル数 |
+|-------------|------------|---------------|---------|----------|
+| INRIA/VOC | YOLOv2 | 第1 maxpool | **208×208** | 32（合計して1枚に） |
+
+- 根拠: `darknet.py:130-135`、`saliuitl.py:303-304`
+- 注意: 以前の分析で言及した「26×26」「13×13」は復元ステージのYOLO検出グリッドであり、検知ステージのFMとは別物
+
+### 二値化方法
+
+```python
+binarized_fm = np.array(fm >= np.max(fm) * beta, dtype='float32')
+```
+- 閾値 = **FMの最大値 × beta**
+- 根拠: `saliuitl.py:205`
+- 注意: CLAUDE.mdの「mean + beta × std」はコード実装と異なる
+
+### 4属性の正確な定義
+
+| # | 名称 | 計算 | 根拠 |
+|---|------|------|------|
+| 1 | クラスタ数 | DBSCAN unique labels数 | `saliuitl.py:240` |
+| 2 | 平均クラスタ内距離 | クラスタ内ペアワイズ距離平均→クラスタ間平均 | `saliuitl.py:224-230` |
+| 3 | 距離の標準偏差 | 上記のクラスタ間std | `saliuitl.py:231` |
+| 4 | 活性ニューロン数 | `binarized_fm.sum()`（閾値超え画素数） | `saliuitl.py:246` |
+
+### ADモデル
+
+- **AtkDetCNNRaw**: 実際は**1D-CNN**（`Conv1d`）
+- 入力: `(1, 4, num_betas)` → L∞正規化 + 2x-1スケール済み
+- 出力: sigmoid適用済み [0,1]（モデル内で適用、`nets/attack_detector.py:73`）
+- 判定: `score >= nn_det_threshold`（デフォルト0.5）
+
+### L∞正規化
+
+```python
+detector_input = 2 * nn.functional.normalize(tensor, dim=2, p=float('inf')) - 1
+```
+- 各属性チャネル内で全beta値中の最大絶対値で割る → [0,1] → 2x-1で[-1,1]にスケール
+- 根拠: `saliuitl.py:315`
+
+---
+
 ## 更新履歴
 
 - 2026-02-02: 初版作成（論文Section 4.1、saliuitl.pyから抽出）
 - 2026-02-04: CIFAR/ImageNet用ADチェックポイントの存在を確認、誤記載を修正
 - 2026-02-05: Oracle Test結果から判明した事実を追加
 - 2026-02-05: ボトルネック階層構造・タスク別改善優先順位を追加
+- 2026-02-09: 検知ステージの実装詳細を追加（コード直接調査に基づく）

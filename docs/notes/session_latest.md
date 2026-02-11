@@ -1,42 +1,71 @@
-# Session Log: 2026-02-08
+# Session Log: 2026-02-10
 
-**セッション開始**: 2026-02-08
+**セッション開始**: 2026-02-10
 **主担当**: Lead Agent
 
 ---
 
-## 本日の完了タスク
+## 本日の目標
 
-### フェーズ1: 分析・実装（前半セッション）
-1. **復元マスク面積の考察** — `my_mask` 累積面積は4.3-10.9%（平均8.1%）、over-maskingメカニズム解明
-2. **可視化/評価乖離の発見** — 可視化=最悪ケース、評価=全beta統合
-3. **可視化修正の実装** — `best_viz_img` トラッキング、per-beta統計表示を追加
-
-### フェーズ2: 全タスク実行（後半セッション）
-4. **VIZTEST**: 可視化修正の回帰テスト → RR=0.5385一致、5枚可視化検証OK
-5. **BETASTATS**: Per-Beta統計定量分析 → 63.3%の画像でbest beta < 0.40
-6. **NEULIM**: neulim閾値チューニング → 0.1でVOC -11.5%、デフォルト0.5が最適
-7. **BETARANGE**: Beta範囲制限 → BETASTATS/NEULIMの結果から実行不要と判断
+Table 1再現実験の考察スライド作成 + 乖離原因の体系的分析
 
 ---
 
-## 主要な発見サマリ
+## 完了タスク
 
-### 仮説の検証結果
+### 1. Table 1再現結果の考察分析
 
-| 当初の仮説 | 実験結果 | 結論 |
-|-----------|---------|------|
-| 低beta(<0.30)は有害なover-masking | 63.3%の画像でbest beta<0.40 | **否定**: 低betaは不可欠 |
-| beta範囲制限でRR改善 | best betaを失う画像が過半数 | **否定**: 壊滅的低下 |
-| neulim引き下げでover-masking抑制 | VOC RR -11.5% (neulim=0.1) | **否定**: デフォルト最適 |
+**目的**: 15シナリオの論文値との乖離原因を体系的に整理
 
-### 正しい改善方向の特定
+**主要分析結果**:
 
-低betaの広域マスキングは「有害なover-masking」ではなく、**高betaでは回復できない検出を補完する必要な広域マスキング**。
+| 乖離パターン | 該当シナリオ | 主因 |
+|:------------|:-----------|:-----|
+| INRIA上昇 (+20〜47%) | INRIA 1p/2p | effective_files不整合 + サンプル数不足 |
+| trig低下 (-11〜27%) | VOC/INRIA trig | 非矩形パッチ形状 → 検出失敗+マスク不一致 |
+| mo低下 (-14%) | VOC mo | 境界配置によるIP品質低下 + 複数パッチ |
+| ImageNet低下 (-19〜38%) | ImageNet 2p/4p | チェックポイント未提供 + パッチ数増加 |
+| CIFAR概ね一致 (±5%) | CIFAR 4p/trig | torchvision pretrainedでも32×32では影響小 |
 
-改善すべきは:
-- over-maskingの**削減**ではなく、マスク**精度の向上**（高解像度FM等）
-- 2段階マスキング（粗検出→精緻化）
+### 2. effective_filesの正確な定義確認
+
+**目的**: effective_filesの仕組みをコードレベルで確認し、スライドの説明精度を担保
+
+**確認結果**:
+- effective_files = **攻撃が成功した画像のファイル名リスト**（`--geteff`で生成）
+- 物体検出: IoU < 0.5 → effective（`saliuitl.py:585`）
+- 分類: 予測 ≠ 正解ラベル → effective（`saliuitl.py:776`）
+- 重み(.pth)の違いはINRIA上昇の主因ではない（検出率95-100%で正常動作）
+
+### 3. trig/mo仮説の検証
+
+**ユーザー仮説**: trig/moの低下は (1)三角形パッチ形状 (2)オブジェクト境界配置に起因
+**検証結果**: 両仮説ともデータで支持される
+
+- trig: 検出失敗（INRIA 54.5%）+ マスク形状不一致（VOC検出後復元率18.8%）
+- mo: 検出率100%だが検出後復元率25.9%、境界配置+複数パッチの複合効果
+
+### 4. 考察スライドの作成・反復改善
+
+**最終構成**: 2枚（結果テーブル + 考察1枚）
+
+考察スライドの反復:
+1. 初版: 4枚（考察1〜4） → Oracle参照あり
+2. Oracle除去版: Oracle結果は別実験のため考察から除外（ユーザー指摘）
+3. 1枚統合版: パターン別テーブル + 簡潔な箇条書き
+4. B案採用版: 全15シナリオの評価n・1枚変動・検出率・論文差・主因を1テーブルに
+
+### 5. RR Diff水平バーチャート生成
+
+**仕様**:
+- 0基準線（論文値）を中心とした水平発散バーチャート
+- 青: 論文値より高い（>+5%）、グレー: 一致（±5%以内）、赤: 低い（<-5%）
+- データセット順（INRIA→VOC→ImageNet→CIFAR）
+- 日本語凡例（NotoSansJP使用）、タイトルなし
+
+### 6. LaTeX表出力
+
+effective_filesの評価対象画像数をLaTeX tabular形式で出力。VOCの手元データ数を29に修正。
 
 ---
 
@@ -44,48 +73,11 @@
 
 | ファイル | 操作 | 内容 |
 |---------|------|------|
-| `saliuitl.py` | 編集 | best_viz_img可視化修正（3箇所）+ per-beta stats logging |
-| `docs/notes/recovery_mask_analysis.md` | 更新 | Section 7 実験検証結果を追加 |
-| `RESULT_LOG.md` | 追記 | R-2026-02-08-B,C,D エントリ |
-| `TASKS.md` | 更新 | 4タスク完了済みに更新 |
-| `experiments/exp_20260208_vizfix/` | 新規 | 可視化修正テスト結果（5枚PNG） |
-| `experiments/exp_20260208_betastats/` | 新規 | BETA_STATS生データ + 分析レポート |
-| `experiments/exp_20260208_neulim/` | 新規 | neulim実験ログ（6条件） |
+| `docs/slides_table1_reproduction.md` | 更新 | 結果+考察スライド（最終2枚構成） |
+| `experiments/exp_20260201_reproduction/results/rr_diff_chart.png` | 新規 | RR Diff水平バーチャート |
+| `docs/notes/session_latest.md` | 更新 | 本セッションログ |
+| `RESULT_LOG.md` | 追記 | R-2026-02-10 エントリ |
 
 ---
 
-## タスク状態
-
-| ID | タスク | 状態 |
-|----|--------|------|
-| #1 | VIZTEST: 可視化修正テスト | completed |
-| #2 | BETASTATS: Per-Beta統計分析 | completed |
-| #3 | BETARANGE: Beta範囲制限 | completed (不要と判断) |
-| #4 | NEULIM: neulim閾値チューニング | completed |
-
----
-
-## フェーズ3: ドキュメント統合（継続セッション）
-
-### 追加作業
-8. **ボックス貢献度分析**: 全1,409ボックスのbeta範囲別分布を定量化
-   - beta<0.30: VOC 33.0%, INRIA 42.6%, 全体36.4%
-   - 最頻best beta: VOC=0.35, INRIA=0.20
-9. **per_beta_summary.csv生成**: 全49画像×513レコードのCSVデータを生成
-10. **ドキュメント統合更新**:
-    - `analysis_report.md`: INRIA per-image表、ボックス貢献度Section 3b追加
-    - `recovery_mask_analysis.md`: Section 7.2にボックス貢献度テーブル追加
-    - `RESULT_LOG.md`: R-2026-02-08-Cにボックス貢献度テーブル追加
-
-### 追加更新ファイル
-
-| ファイル | 操作 | 内容 |
-|---------|------|------|
-| `experiments/exp_20260208_betastats/per_beta_summary.csv` | 新規 | 513行のper-beta全データCSV |
-| `experiments/exp_20260208_betastats/analysis_report.md` | 更新 | INRIA表、ボックス貢献度Section 3b追加 |
-| `docs/notes/recovery_mask_analysis.md` | 更新 | Section 7.2にボックス貢献度追加 |
-| `RESULT_LOG.md` | 更新 | R-2026-02-08-Cにボックス貢献度追加 |
-
----
-
-**セッション終了**: 2026-02-08 (全タスク完了 + ドキュメント統合完了)
+**セッション終了**: 2026-02-10

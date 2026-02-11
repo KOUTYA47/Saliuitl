@@ -407,11 +407,27 @@ docker compose run --rm saliuitl python saliuitl.py \
 - 2026-02-06: スライド構成改善（12枚、可視化・Oracle Test強調版）
 - 2026-02-06: スライド草案v2作成、日本語図表6点作成
 - 2026-02-08: 復元マスク面積の考察、可視化/評価乖離の発見・修正実装
+- 2026-02-09: 検知ステージ徹底調査、4属性グラフ再現実験完了
 ```
 
 ---
 
-## 11. 次のアクション（2026-02-08更新）
+## 11. 次のアクション（2026-02-09更新）
+
+### 完了済み（2026-02-09）
+- [x] **検知ステージ徹底調査** ✅
+  - ドキュメント: `docs/notes/detection_stage_investigation.md`
+  - 4属性の正確な定義をコードから特定
+  - CLAUDE.md記述との相違点を6項目発見・記録
+  - FM解像度は208×208（第1 maxpool）、二値化は`max(FM)*beta`
+- [x] **4属性グラフ再現実験**（TASK-20260209-DETFEAT） ✅
+  - VOC 1-patch 26画像で clean/attacked の4属性を抽出
+  - AD Score: Attacked平均=0.9999, Clean平均=0.0245（完全分離）
+  - 全4属性でβ=0.05〜0.30に乖離集中
+  - スクリプト: `scripts/extract_detection_features.py`
+  - CSV + 5枚のグラフ → `experiments/exp_20260209_detection_features/`
+- [x] **スライド記載方針の策定** ✅
+  - 4属性の推奨名称・説明文・グラフとの対応を整理
 
 ### 完了済み（2026-02-08）
 - [x] **復元マスク面積の考察** ✅
@@ -452,9 +468,12 @@ docker compose run --rm saliuitl python saliuitl.py \
 - [x] スライド用表のLaTeX画像化（6点生成） ✅
 
 ### 優先度: 高（発表準備）
-- [ ] **スライドPPTXへの変換**（発表日: 2026-02-08目標）
+- [ ] **スライドPPTXへの変換**
 - [ ] **復元画像サンプルの選定**（スライド7用）
   - `experiments/exp_20260202_viz_improved/figures/` から選定
+- [ ] **4属性グラフのスライド組み込み**
+  - `experiments/exp_20260209_detection_features/figures/` の図を使用
+  - 推奨: `mean_raw_attributes.png`（全体傾向）+ `single_*.png`（個別例）
 - [ ] **発表練習**
 
 ### 完了済み（2026-02-08 実験実行）
